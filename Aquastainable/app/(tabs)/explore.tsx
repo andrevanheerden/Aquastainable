@@ -1,6 +1,6 @@
 import { StyleSheet, Text, View } from "react-native";
 
-import Colors from "@/Aquastainable/app/colors";
+import Colors from "../colors";
 
 export default function ExploreScreen() {
   return (

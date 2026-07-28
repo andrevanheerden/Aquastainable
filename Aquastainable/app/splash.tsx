@@ -108,7 +108,7 @@ const SplashScreen: React.FC<Props> = ({ onFinish }) => {
           }}
         >
           <Image
-            source={require("../assets/images/react-logo.png")}
+            source={require("../assets/img/Aque-logo.png")}
             style={styles.logo}
             resizeMode="contain"
           />

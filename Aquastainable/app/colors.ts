@@ -4,7 +4,7 @@
 // hex wasn't in the doc text, only Info/Success/Warning/Error had visible codes.
 
 export const Colors = {
-  background: "#000000", // main app background — pure black as requested
+  background: "#16151A", // main app background — pure black as requested
   surface: "#121212", // slightly raised panels/cards on top of black
   primary: "#D6164B", // crimson/pink-red from your style guide
   teal: "#1F4A57", // dark teal from the logo
@@ -17,6 +17,14 @@ export const Colors = {
   success: "#37F611",
   warning: "#FFB01F",
   error: "#EB5757",
+
+    // extra tones for the fish tank / goldfish artwork
+  goldLight: '#FFB066',
+  goldMid: '#FF8C3D',
+  goldDark: '#B3540B',
+  gravel: '#C9BFAE',
+  plant: '#2F6B4F',
+  glass: '#DDEFF3',
 };
 
 export default Colors;
