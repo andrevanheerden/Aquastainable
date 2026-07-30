@@ -18,13 +18,14 @@ export const Colors = {
   warning: "#FFB01F",
   error: "#EB5757",
 
-    // extra tones for the fish tank / goldfish artwork
-  goldLight: '#FFB066',
-  goldMid: '#FF8C3D',
-  goldDark: '#B3540B',
-  gravel: '#C9BFAE',
-  plant: '#2F6B4F',
-  glass: '#DDEFF3',
+
+  // splash screen glow
+  splashBlue: '#2FB6FF',
+  splashSalmon: '#FF7A59',
+
+  // loading screen water
+    waterFill: '#2E8CA6',
+  waterFillLight: '#BFE7F0',
 };
 
 export default Colors;
