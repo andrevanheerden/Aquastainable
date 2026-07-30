@@ -15,6 +15,7 @@
 // Usage (uncontrolled demo — animates 0 to 100 on its own):
 //   <LoadingScreen />
 
+import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, Animated, StyleSheet, Easing } from 'react-native';
 import Svg, { Path, Rect, G, Defs, ClipPath, Circle } from 'react-native-svg';
@@ -35,6 +36,7 @@ const AnimatedRect = Animated.createAnimatedComponent(Rect);
 const AnimatedPath = Animated.createAnimatedComponent(Path);
 
 const LoadingScreen: React.FC<Props> = ({ progress, label, duration = 3000 }) => {
+  const router = useRouter();
   const fill = useRef(new Animated.Value(0)).current; // 0-100
   const [displayPercent, setDisplayPercent] = useState(0);
 
@@ -60,7 +62,22 @@ const LoadingScreen: React.FC<Props> = ({ progress, label, duration = 3000 }) =>
         useNativeDriver: false,
       }).start();
     }
-  }, [progress]);
+  }, [duration, fill, progress]);
+
+  useEffect(() => {
+    if (progress !== undefined) {
+      if (progress >= 100) {
+        router.replace('/(tabs)/home');
+      }
+      return;
+    }
+
+    const timeout = setTimeout(() => {
+      router.replace('/(tabs)/home');
+    }, duration);
+
+    return () => clearTimeout(timeout);
+  }, [duration, progress, router]);
 
   // y = CY + R at 0% (fully below the circle, so nothing shows)
   // y = CY - R at 100% (fully above the circle, so it's completely full)

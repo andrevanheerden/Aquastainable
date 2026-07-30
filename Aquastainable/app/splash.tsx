@@ -241,7 +241,7 @@ const SplashScreen: React.FC<Props> = ({ onFinish }) => {
             { opacity: logoOpacity, transform: [{ scale: logoScale }] },
           ]}
         >
-          <Image source={require('../assets/img/Aque-logo.png')} style={styles.logo} resizeMode="contain" />
+          <Image source={require('../assets/logo/Aque-logo.png')} style={styles.logo} resizeMode="contain" />
         </Animated.View>
       </View>
     </View>
