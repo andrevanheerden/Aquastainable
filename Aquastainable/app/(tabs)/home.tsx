@@ -86,7 +86,7 @@ export default function DashboardScreen() {
       >
         <View style={styles.overlayGradient} />
 
-        <SafeAreaView style={styles.contentContainer}>
+        <View style={styles.contentContainer}>
           <View style={styles.topHeader}>
             <Text style={styles.brandTitle}>AQUASTAINABLE</Text>
             <View style={styles.pagePill}>
@@ -136,6 +136,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background,
   },
   backgroundImage: {
+    flex: 1,
     width: '100%',
     height: '100%',
   },
@@ -146,14 +147,16 @@ const styles = StyleSheet.create({
   contentContainer: {
     flex: 1,
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 40,
-    paddingBottom: 30,
+    paddingHorizontal: 0,
+    paddingTop: 0,
+    paddingBottom: 0,
   },
   topHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 48,
   },
   brandTitle: {
     color: Colors.white,
@@ -175,7 +178,8 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   bottomSection: {
-    marginBottom: 20,
+    paddingHorizontal: 20,
+    paddingBottom: 28,
   },
   statusBadgeContainer: {
     flexDirection: 'row',

@@ -68,7 +68,7 @@ export function GestureDrawer({ children }: GestureDrawerProps) {
     <View style={styles.container}>
       <View style={styles.mainContent}>{children}</View>
 
-      <Animated.View style={[styles.backdrop, { opacity: backdropOpacity, pointerEvents }]}>
+      <Animated.View style={[styles.backdrop, { opacity: backdropOpacity, pointerEvents, backgroundColor: 'rgba(17, 24, 28, 0.72)' }]}>
         <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={closeDrawer} />
       </Animated.View>
 
@@ -158,7 +158,7 @@ const styles = StyleSheet.create({
   },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#000000',
+    backgroundColor: 'rgba(17, 24, 28, 0.72)',
     zIndex: 99,
   },
   drawerPanel: {
@@ -167,7 +167,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     width: DRAWER_WIDTH,
-    backgroundColor: Colors.surface, // #121212
+    backgroundColor: Colors.dark.background,
     zIndex: 100,
     borderRightWidth: 1,
     borderRightColor: 'rgba(255, 255, 255, 0.08)',
@@ -190,7 +190,7 @@ const styles = StyleSheet.create({
     width: 5,
     height: 48,
     borderRadius: 3,
-    backgroundColor: 'rgba(255, 255, 255, 0.35)',
+    backgroundColor: Colors.light.tint,
   },
   drawerInnerContent: {
     flex: 1,
@@ -215,13 +215,13 @@ const styles = StyleSheet.create({
     marginLeft: 14,
   },
   userName: {
-    color: Colors.white,
+    color: Colors.dark.text,
     fontSize: 16,
     fontWeight: '700',
     letterSpacing: 0.3,
   },
   userRole: {
-    color: Colors.gray,
+    color: Colors.dark.icon,
     fontSize: 12,
     marginTop: 2,
   },
@@ -247,13 +247,13 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(214, 22, 75, 0.3)',
   },
   itemLabel: {
-    color: Colors.gray,
+    color: Colors.dark.icon,
     fontSize: 15,
     fontWeight: '600',
     marginLeft: 14,
   },
   activeItemLabel: {
-    color: Colors.white,
+    color: Colors.dark.text,
     fontWeight: '700',
   },
   footerSection: {
