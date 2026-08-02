@@ -1,15 +1,20 @@
 // @ts-nocheck
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
+  Animated,
+  Easing,
   ImageBackground,
   PanResponder,
   SafeAreaView,
   StatusBar,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View,
 } from 'react-native';
+import { useRouter } from 'expo-router';
 
+import { IconSymbol } from '@/components/ui/icon-symbol';
 import Colors from '../colors';
 
 const aquariumImage1 = require('../../assets/fishTank/FishTankForest.jpeg');
@@ -57,7 +62,21 @@ const MOCK_AQUARIUMS: AquariumData[] = [
 ];
 
 export default function DashboardScreen() {
+  const router = useRouter();
   const [activeIndex, setActiveIndex] = useState(0);
+
+  // gentle bounce on the chevron to hint "there's more here"
+  const bounce = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(bounce, { toValue: 1, duration: 550, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        Animated.timing(bounce, { toValue: 0, duration: 550, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      ])
+    ).start();
+  }, []);
+  const bounceY = bounce.interpolate({ inputRange: [0, 1], outputRange: [0, -4] });
+
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
@@ -119,10 +138,25 @@ export default function DashboardScreen() {
               </View>
             </View>
 
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>Water health</Text>
-              <Text style={styles.cardText}>Everything looks stable and ready for monitoring.</Text>
-            </View>
+            <TouchableOpacity
+              style={styles.tankInfoButton}
+              activeOpacity={0.85}
+              onPress={() => router.push(`/tank/${aquarium.tankId}`)}
+            >
+              <View style={styles.swipeIndicator}>
+                <View style={styles.swipeHandle} />
+                <Text style={styles.swipeHint}>Swipe up</Text>
+              </View>
+
+              <View style={styles.tankInfoTextWrap}>
+                <Text style={styles.tankInfoTitle}>Tank info</Text>
+                <Text style={styles.tankInfoSubtitle}>Species, conditions & care tips</Text>
+              </View>
+
+              <Animated.View style={[styles.chevronWrap, { transform: [{ translateY: bounceY }] }]}> 
+                <IconSymbol name="chevron.up" size={18} color={Colors.white} />
+              </Animated.View>
+            </TouchableOpacity>
           </View>
         </SafeAreaView>
       </ImageBackground>
@@ -236,22 +270,51 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
   },
-  card: {
-    backgroundColor: 'rgba(18, 18, 18, 0.82)',
-    borderRadius: 16,
-    padding: 16,
+  tankInfoButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 22,
+    paddingVertical: 16,
+    paddingHorizontal: 18,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: 'rgba(255, 255, 255, 0.14)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.12,
+    shadowRadius: 18,
+    elevation: 5,
   },
-  cardTitle: {
+  swipeIndicator: {
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  swipeHandle: {
+    width: 26,
+    height: 4,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255, 255, 255, 0.45)',
+    marginBottom: 8,
+  },
+  swipeHint: {
+    color: Colors.gray,
+    fontSize: 10,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+  },
+  tankInfoTextWrap: {
+    flex: 1,
+  },
+  tankInfoTitle: {
     color: Colors.white,
     fontSize: 16,
-    fontWeight: '700',
-    marginBottom: 6,
+    fontWeight: '800',
+    marginBottom: 4,
   },
-  cardText: {
+  tankInfoSubtitle: {
     color: Colors.lightBlue,
-    fontSize: 13,
-    lineHeight: 20,
+    fontSize: 12,
   },
+
 });
