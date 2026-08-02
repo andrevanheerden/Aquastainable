@@ -1,20 +1,9 @@
 // app/tank/[id].tsx
-// Tank info screen — reached by tapping "Tank info" on the dashboard.
-//
-// Layout, top to bottom:
-//   - hero: stacked species thumbnails on the left, big preview on the right
-//     (tapping a thumbnail updates the preview AND scrolls the Fish & Plants
-//     carousel below to match)
-//   - Overview, in its own card
-//   - Tank conditions, in its own card
-//   - Fish & plants — one species card visible at a time, swipe to move
-//     through them, with dot indicators showing how many there are
-//   - Care tips
-
 import React, { useRef, useState } from 'react';
 import {
   Dimensions,
   FlatList,
+  Image,
   NativeScrollEvent,
   NativeSyntheticEvent,
   SafeAreaView,
@@ -36,35 +25,39 @@ const CARD_GAP = 16;
 const CARD_WIDTH = SCREEN_WIDTH - 48;
 const CARD_STRIDE = CARD_WIDTH + CARD_GAP;
 
-// Simple colored-circle placeholders standing in for real species photos —
-// swap these for <Image source={require(...)} /> once you have photos per
-// species, keyed by species.id.
-const SPECIES_PLACEHOLDER_COLORS = [Colors.teal, Colors.orange, Colors.primary, Colors.info];
+// Sample internet image URLs for fish & aquatic species thumbnails & preview
+const SPECIES_IMAGES = [
+  'https://images.unsplash.com/photo-1534575180408-b7d7c0136ee8?w=800&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1522069169874-c58ec4b76be5?w=800&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=800&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1520301255226-bf5f144451c1?w=800&auto=format&fit=crop&q=80',
+];
 
-function speciesColor(species: Species) {
-  const idx = species.id.charCodeAt(species.id.length - 1) % SPECIES_PLACEHOLDER_COLORS.length;
-  return SPECIES_PLACEHOLDER_COLORS[idx];
+function getSpeciesImage(index: number) {
+  return SPECIES_IMAGES[index % SPECIES_IMAGES.length];
 }
 
-function ConditionCard({ label, value, accent }: { label: string; value: string; accent?: string }) {
+// "Need to know" card tile matching reference layout
+function ConditionTile({
+  label,
+  value,
+  iconName,
+  accentColor = '#8A7CFF',
+}: {
+  label: string;
+  value: string;
+  iconName: string;
+  accentColor?: string;
+}) {
   return (
-    <View style={styles.conditionCard}>
-      <Text style={styles.conditionLabel}>{label}</Text>
-      <Text style={[styles.conditionValue, accent ? { color: accent } : null]}>{value}</Text>
+    <View style={styles.conditionTile}>
+      <Text style={styles.conditionTileLabel}>{label}</Text>
+      <View style={styles.conditionIconContainer}>
+        <IconSymbol name={iconName} size={36} color={accentColor} />
+      </View>
+      <Text style={styles.conditionTileValue}>{value}</Text>
     </View>
   );
-}
-
-function waterQualityColor(quality: string) {
-  switch (quality) {
-    case 'Excellent':
-    case 'Good':
-      return Colors.success;
-    case 'Fair':
-      return Colors.warning;
-    default:
-      return Colors.error;
-  }
 }
 
 export default function TankInfoScreen() {
@@ -108,25 +101,40 @@ export default function TankInfoScreen() {
     setActiveIndex(Math.max(0, Math.min(tank.species.length - 1, index)));
   };
 
-  const activeSpecies = tank.species[activeIndex];
+  const activeSpecies = tank.species[activeIndex] || tank.species[0];
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={Colors.background} />
+      <StatusBar barStyle="light-content" backgroundColor="#121214" />
       <SafeAreaView style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          {/* header */}
+          
+          {/* Header Row: Back Chevron + Ellipsis Menu */}
           <View style={styles.headerRow}>
-            <TouchableOpacity onPress={() => router.back()} style={styles.backButton} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-              <IconSymbol name="chevron.left" size={20} color={Colors.white} />
+            <TouchableOpacity
+              onPress={() => router.back()}
+              style={styles.headerButton}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <IconSymbol name="chevron.left" size={18} color="#FFFFFF" />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => {}}
+              style={styles.headerButton}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <IconSymbol name="ellipsis" size={18} color="#FFFFFF" />
             </TouchableOpacity>
           </View>
 
-          <Text style={styles.tankName}>Tank name</Text>
-          <Text style={styles.tankSubtitle}>{tank.species.length} species in this tank</Text>
+          {/* Title + Scientific Subtitle */}
+          <Text style={styles.tankName}>{activeSpecies.name}</Text>
+          <Text style={styles.tankSubtitle}>{activeSpecies.speciesName}</Text>
 
-          {/* hero: thumbnail stack on the left, big preview on the right */}
+          {/* Hero Image Section */}
           <View style={styles.hero}>
+            {/* Thumbnail Column */}
             <View style={styles.heroThumbColumn}>
               {tank.species.map((s, i) => {
                 const selected = i === activeIndex;
@@ -135,55 +143,54 @@ export default function TankInfoScreen() {
                     key={s.id}
                     onPress={() => goToIndex(i)}
                     activeOpacity={0.85}
-                    style={[
-                      styles.heroThumb,
-                      { backgroundColor: speciesColor(s) },
-                      selected && styles.heroThumbSelected,
-                    ]}
+                    style={[styles.heroThumbContainer, selected && styles.heroThumbSelected]}
                   >
-                    {selected && <View style={styles.heroThumbTab} />}
-                    <Text style={styles.heroThumbEmoji}>{s.type === 'plant' ? '🌿' : '🐟'}</Text>
+                    <Image source={{ uri: getSpeciesImage(i) }} style={styles.heroThumbImage} />
                   </TouchableOpacity>
                 );
               })}
             </View>
 
-            <View style={[styles.heroPreview, { backgroundColor: speciesColor(activeSpecies) }]}>
-              <Text style={styles.heroPreviewEmoji}>{activeSpecies.type === 'plant' ? '🌿' : '🐟'}</Text>
-              <View style={styles.heroPreviewLabel}>
-                <Text style={styles.heroPreviewName}>{activeSpecies.name}</Text>
-                <Text style={styles.heroPreviewScientific}>{activeSpecies.speciesName}</Text>
-              </View>
+            {/* Main Preview Image */}
+            <View style={styles.heroPreview}>
+              <Image source={{ uri: getSpeciesImage(activeIndex) }} style={styles.heroPreviewImage} resizeMode="cover" />
             </View>
           </View>
 
-          {/* overview */}
+          {/* Overview Section */}
           <Text style={styles.sectionTitle}>Overview</Text>
-          <View style={styles.card}>
-            <Text style={styles.overviewText}>{tank.overviewSummary}</Text>
+          <Text style={styles.overviewText}>{tank.overviewSummary}</Text>
+
+          {/* Need to know / Tank Conditions Section */}
+          <Text style={styles.sectionTitle}>Need to know</Text>
+          <View style={styles.conditionsGrid}>
+            <ConditionTile
+              label="Water temp"
+              value={`${tank.conditions.preferredTempC}`}
+              iconName="thermometer"
+              accentColor="#E57373"
+            />
+            <ConditionTile
+              label="Living Area"
+              value={tank.conditions.waterQuality}
+              iconName="leaf.fill"
+              accentColor="#81C784"
+            />
+            <ConditionTile
+              label="pH Level"
+              value={tank.conditions.ph}
+              iconName="drop.fill"
+              accentColor="#64B5F6"
+            />
+            <ConditionTile
+              label="Last tested"
+              value={tank.conditions.lastTestedDaysAgo === 0 ? 'Today' : `${tank.conditions.lastTestedDaysAgo}d ago`}
+              iconName="clock.fill"
+              accentColor="#FFB74D"
+            />
           </View>
 
-          {/* tank conditions */}
-          <Text style={styles.sectionTitle}>Tank conditions</Text>
-          <View style={[styles.card, styles.conditionsCard]}>
-            <View style={styles.conditionsGrid}>
-              <ConditionCard label="PREFERRED TEMP" value={tank.conditions.preferredTempC} />
-              <ConditionCard
-                label="WATER QUALITY"
-                value={tank.conditions.waterQuality}
-                accent={waterQualityColor(tank.conditions.waterQuality)}
-              />
-              <ConditionCard label="PH" value={tank.conditions.ph} />
-              <ConditionCard label="AMMONIA" value={tank.conditions.ammoniaPpm} />
-              <ConditionCard label="NITRITE" value={tank.conditions.nitritePpm} />
-              <ConditionCard
-                label="LAST TESTED"
-                value={tank.conditions.lastTestedDaysAgo === 0 ? 'Today' : `${tank.conditions.lastTestedDaysAgo}d ago`}
-              />
-            </View>
-          </View>
-
-          {/* fish & plants — one card visible at a time */}
+          {/* Fish & Plants Horizontal Carousel */}
           <Text style={styles.sectionTitle}>Fish & plants</Text>
           <FlatList
             ref={speciesListRef}
@@ -196,12 +203,10 @@ export default function TankInfoScreen() {
             showsHorizontalScrollIndicator={false}
             onMomentumScrollEnd={onSpeciesScrollEnd}
             contentContainerStyle={{ paddingRight: 24 }}
-            renderItem={({ item }) => (
+            renderItem={({ item, index }) => (
               <View style={[styles.speciesCard, { width: CARD_WIDTH }]}>
                 <View style={styles.speciesCardHeader}>
-                  <View style={[styles.speciesAvatar, { backgroundColor: speciesColor(item) }]}>
-                    <Text style={styles.speciesAvatarEmoji}>{item.type === 'plant' ? '🌿' : '🐟'}</Text>
-                  </View>
+                  <Image source={{ uri: getSpeciesImage(index) }} style={styles.speciesAvatarImage} />
                   <View style={styles.speciesCardHeaderText}>
                     <Text style={styles.speciesName}>{item.name}</Text>
                     <Text style={styles.speciesScientific}>{item.speciesName}</Text>
@@ -209,8 +214,8 @@ export default function TankInfoScreen() {
                   <TouchableOpacity onPress={() => toggleFavorite(item.id)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                     <IconSymbol
                       name={favorites.has(item.id) ? 'heart.fill' : 'heart'}
-                      size={22}
-                      color={favorites.has(item.id) ? Colors.primary : Colors.gray}
+                      size={20}
+                      color={favorites.has(item.id) ? '#FF4D4D' : '#6E6E73'}
                     />
                   </TouchableOpacity>
                 </View>
@@ -234,16 +239,12 @@ export default function TankInfoScreen() {
                     <Text style={styles.speciesDataLabel}>Feeding</Text>
                     <Text style={styles.speciesDataValue}>{item.feeding}</Text>
                   </View>
-                  <View style={styles.speciesDataRow}>
-                    <Text style={styles.speciesDataLabel}>School size</Text>
-                    <Text style={styles.speciesDataValue}>{item.schoolSize}</Text>
-                  </View>
                 </View>
               </View>
             )}
           />
 
-          {/* dot indicators — makes it clear there's more than one card */}
+          {/* Pagination Dots */}
           {tank.species.length > 1 && (
             <View style={styles.dotsRow}>
               {tank.species.map((s, i) => (
@@ -254,278 +255,241 @@ export default function TankInfoScreen() {
             </View>
           )}
 
-          {/* care tips */}
-          <Text style={styles.sectionTitle}>Care tips</Text>
-          <View style={styles.card}>
-            {tank.careTips.map((tip, i) => (
-              <View key={i} style={styles.tipRow}>
-                <View style={styles.tipDot} />
-                <Text style={styles.tipText}>{tip}</Text>
-              </View>
-            ))}
-          </View>
+          {/* Action Button */}
+          <TouchableOpacity style={styles.actionButton} activeOpacity={0.9}>
+            <Text style={styles.actionButtonText}>View Tank Schedule</Text>
+          </TouchableOpacity>
+
         </ScrollView>
       </SafeAreaView>
     </View>
   );
 }
 
-const HERO_HEIGHT = 220;
-const THUMB_SIZE = 64;
+const HERO_HEIGHT = 240;
+const THUMB_SIZE = 58;
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: '#121214',
   },
   scrollContent: {
-    paddingHorizontal: 24,
-    paddingBottom: 48,
+    paddingHorizontal: 20,
+    paddingBottom: 40,
   },
   headerRow: {
     flexDirection: 'row',
+    justify: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginTop: 8,
+    marginBottom: 24,
   },
-  backButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: Colors.surface,
+  headerButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'transparent',
     alignItems: 'center',
-    justifyContent: 'center',
+    justify: 'center',
   },
   tankName: {
-    color: Colors.white,
-    fontSize: 30,
+    color: '#FFFFFF',
+    fontSize: 32,
     fontWeight: '700',
+    fontFamily: 'Platform',
+    letterSpacing: -0.5,
   },
   tankSubtitle: {
-    color: Colors.lightBlue,
-    fontSize: 14,
+    color: '#6E6E73',
+    fontSize: 15,
     marginTop: 4,
-    marginBottom: 18,
+    marginBottom: 20,
   },
 
-  // hero
+  // Hero Section
   hero: {
     flexDirection: 'row',
     height: HERO_HEIGHT,
-    marginBottom: 8,
+    marginBottom: 28,
   },
   heroThumbColumn: {
-    justifyContent: 'space-between',
-    marginRight: 14,
-    zIndex: 2,
+    justify: 'flex-start',
+    gap: 12,
+    marginRight: 16,
   },
-  heroThumb: {
+  heroThumbContainer: {
     width: THUMB_SIZE,
     height: THUMB_SIZE,
     borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    opacity: 0.55,
+    overflow: 'hidden',
+    backgroundColor: '#1C1C1E',
+    opacity: 0.4,
   },
   heroThumbSelected: {
     opacity: 1,
     borderWidth: 2,
-    borderColor: Colors.white,
+    borderColor: '#FFFFFF',
   },
-  heroThumbTab: {
-    position: 'absolute',
-    left: -8,
-    top: '50%',
-    marginTop: -10,
-    width: 8,
-    height: 20,
-    borderTopLeftRadius: 4,
-    borderBottomLeftRadius: 4,
-    backgroundColor: Colors.white,
-  },
-  heroThumbEmoji: {
-    fontSize: 26,
+  heroThumbImage: {
+    width: '100%',
+    height: '100%',
   },
   heroPreview: {
     flex: 1,
     borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
     overflow: 'hidden',
+    backgroundColor: '#1C1C1E',
   },
-  heroPreviewEmoji: {
-    fontSize: 72,
-  },
-  heroPreviewLabel: {
-    position: 'absolute',
-    left: 16,
-    bottom: 14,
-  },
-  heroPreviewName: {
-    color: Colors.white,
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  heroPreviewScientific: {
-    color: 'rgba(255,255,255,0.8)',
-    fontSize: 11,
-    fontStyle: 'italic',
+  heroPreviewImage: {
+    width: '100%',
+    height: '100%',
   },
 
+  // Section Headers & Text
   sectionTitle: {
-    color: Colors.white,
-    fontSize: 20,
+    color: '#FFFFFF',
+    fontSize: 22,
     fontWeight: '700',
-    marginTop: 28,
+    marginTop: 24,
     marginBottom: 12,
   },
-  card: {
-    backgroundColor: Colors.surface,
-    borderRadius: 18,
-    padding: 18,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
-  },
   overviewText: {
-    color: Colors.lightBlue,
-    fontSize: 14,
-    lineHeight: 21,
+    color: '#8E8E93',
+    fontSize: 15,
+    lineHeight: 22,
   },
-  conditionsCard: {
-    paddingBottom: 6,
-  },
+
+  // Need to Know Condition Tiles
   conditionsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginHorizontal: -6,
+    justify: 'space-between',
+    rowGap: 12,
   },
-  conditionCard: {
-    width: '33.33%',
-    paddingHorizontal: 6,
-    marginBottom: 12,
+  conditionTile: {
+    width: (SCREEN_WIDTH - 52) / 2,
+    height: 140,
+    backgroundColor: '#1C1C1E',
+    borderRadius: 20,
+    padding: 16,
+    justify: 'space-between',
   },
-  conditionLabel: {
-    color: Colors.gray,
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-    marginBottom: 6,
+  conditionTileLabel: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '600',
   },
-  conditionValue: {
-    color: Colors.white,
-    fontSize: 16,
-    fontWeight: '700',
+  conditionIconContainer: {
+    alignItems: 'center',
+    justify: 'center',
+    marginVertical: 4,
+  },
+  conditionTileValue: {
+    color: '#8E8E93',
+    fontSize: 13,
+    fontWeight: '500',
   },
 
+  // Species Cards
   speciesCard: {
-    backgroundColor: Colors.surface,
-    borderRadius: 18,
-    padding: 18,
+    backgroundColor: '#1C1C1E',
+    borderRadius: 20,
+    padding: 20,
     marginRight: CARD_GAP,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
   },
   speciesCardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 14,
+    marginBottom: 12,
   },
-  speciesAvatar: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  speciesAvatarEmoji: {
-    fontSize: 22,
+  speciesAvatarImage: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
   },
   speciesCardHeaderText: {
     flex: 1,
     marginLeft: 12,
   },
   speciesName: {
-    color: Colors.white,
+    color: '#FFFFFF',
     fontSize: 18,
     fontWeight: '700',
   },
   speciesScientific: {
-    color: Colors.gray,
-    fontSize: 12,
-    fontStyle: 'italic',
+    color: '#8E8E93',
+    fontSize: 13,
     marginTop: 2,
   },
   speciesSummary: {
-    color: Colors.lightBlue,
-    fontSize: 13,
-    lineHeight: 19,
+    color: '#8E8E93',
+    fontSize: 14,
+    lineHeight: 20,
     marginBottom: 16,
   },
   speciesDataGrid: {
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.08)',
+    borderTopColor: '#2C2C2E',
     paddingTop: 12,
   },
   speciesDataRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justify: 'space-between',
     marginBottom: 8,
   },
   speciesDataLabel: {
-    color: Colors.gray,
-    fontSize: 12,
+    color: '#6E6E73',
+    fontSize: 13,
   },
   speciesDataValue: {
-    color: Colors.white,
-    fontSize: 12,
-    fontWeight: '600',
-    flexShrink: 1,
-    textAlign: 'right',
-    marginLeft: 12,
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '500',
   },
 
+  // Dots
   dotsRow: {
     flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: 14,
+    justify: 'center',
+    marginTop: 16,
   },
   dot: {
-    width: 7,
-    height: 7,
-    borderRadius: 3.5,
-    backgroundColor: 'rgba(255,255,255,0.25)',
-    marginHorizontal: 4,
-  },
-  dotActive: {
-    backgroundColor: Colors.orange,
-    width: 18,
-  },
-
-  tipRow: {
-    flexDirection: 'row',
-    marginBottom: 12,
-  },
-  tipDot: {
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: Colors.orange,
-    marginTop: 6,
-    marginRight: 10,
+    backgroundColor: '#3A3A3C',
+    marginHorizontal: 4,
   },
-  tipText: {
-    flex: 1,
-    color: Colors.lightBlue,
-    fontSize: 13,
-    lineHeight: 20,
+  dotActive: {
+    backgroundColor: '#FFFFFF',
+    width: 16,
   },
+
+  // Action Button
+  actionButton: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 28,
+    height: 56,
+    alignItems: 'center',
+    justify: 'center',
+    marginTop: 32,
+  },
+  actionButtonText: {
+    color: '#000000',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+
+  // Missing screen fallback
   missingContainer: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: '#121214',
     alignItems: 'center',
-    justifyContent: 'center',
+    justify: 'center',
   },
   missingText: {
-    color: Colors.white,
+    color: '#FFFFFF',
     fontSize: 16,
     marginBottom: 12,
   },
@@ -534,7 +498,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   backLinkText: {
-    color: Colors.lightBlue,
+    color: '#8E8E93',
     fontSize: 14,
   },
 });

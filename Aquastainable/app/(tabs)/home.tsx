@@ -9,7 +9,6 @@ import {
   StatusBar,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -61,25 +60,93 @@ const MOCK_AQUARIUMS: AquariumData[] = [
   },
 ];
 
-export default function DashboardScreen() {
-  const router = useRouter();
-  const [activeIndex, setActiveIndex] = useState(0);
+const SWIPE_THUMB_SIZE = 52;
+const SWIPE_PADDING = 4;
 
-  // gentle bounce on the chevron to hint "there's more here"
-  const bounce = useRef(new Animated.Value(0)).current;
-  useEffect(() => {
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(bounce, { toValue: 1, duration: 550, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-        Animated.timing(bounce, { toValue: 0, duration: 550, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-      ])
-    ).start();
-  }, []);
-  const bounceY = bounce.interpolate({ inputRange: [0, 1], outputRange: [0, -4] });
+// Interactive Horizontal Swipe Button Component
+function SwipeButton({ onSwipe }: { onSwipe: () => void }) {
+  const pan = useRef(new Animated.Value(0)).current;
+  const [containerWidth, setContainerWidth] = useState(0);
+
+  const maxTranslate = Math.max(0, containerWidth - SWIPE_THUMB_SIZE - SWIPE_PADDING * 2);
 
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: (_, gestureState) => Math.abs(gestureState.dx) > Math.abs(gestureState.dy),
+      onPanResponderMove: (_, gestureState) => {
+        const newValue = Math.max(0, Math.min(gestureState.dx, maxTranslate));
+        pan.setValue(newValue);
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        if (gestureState.dx >= maxTranslate * 0.75) {
+          // Snap to end and trigger callback
+          Animated.timing(pan, {
+            toValue: maxTranslate,
+            duration: 120,
+            useNativeDriver: true,
+          }).start(() => {
+            onSwipe();
+            // Reset thumb position after navigating
+            setTimeout(() => {
+              Animated.spring(pan, {
+                toValue: 0,
+                friction: 6,
+                useNativeDriver: true,
+              }).start();
+            }, 600);
+          });
+        } else {
+          // Snap back to start if released early
+          Animated.spring(pan, {
+            toValue: 0,
+            friction: 5,
+            useNativeDriver: true,
+          }).start();
+        }
+      },
+    })
+  ).current;
+
+  // Fade out text as the button is dragged
+  const textOpacity = pan.interpolate({
+    inputRange: [0, maxTranslate * 0.5 || 1],
+    outputRange: [1, 0],
+    extrapolate: 'clamp',
+  });
+
+  return (
+    <View
+      style={styles.swipeTrack}
+      onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}
+    >
+      <Animated.Text style={[styles.swipeText, { opacity: textOpacity }]}>
+        SWIPE FOR TANK INFO
+      </Animated.Text>
+      
+      <Animated.View
+        {...panResponder.panHandlers}
+        style={[
+          styles.swipeThumb,
+          {
+            transform: [{ translateX: pan }],
+          },
+        ]}
+      >
+        <IconSymbol name="chevron.right" size={22} color={Colors.white} />
+      </Animated.View>
+    </View>
+  );
+}
+
+export default function HomeScreen() {
+  const router = useRouter();
+  const [activeIndex, setActiveIndex] = useState(0);
+
+  // Vertical Screen Swipe Gesture (Switch Aquariums)
+  const screenPanResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => false,
       onMoveShouldSetPanResponder: (_, gestureState) =>
         Math.abs(gestureState.dy) > Math.abs(gestureState.dx) && Math.abs(gestureState.dy) > 20,
       onPanResponderRelease: (_, gestureState) => {
@@ -96,7 +163,7 @@ export default function DashboardScreen() {
   const currentNumber = activeIndex + 1;
 
   return (
-    <View style={styles.container} {...panResponder.panHandlers}>
+    <View style={styles.container} {...screenPanResponder.panHandlers}>
       <StatusBar barStyle="light-content" backgroundColor={Colors.background} />
       <ImageBackground
         source={typeof aquarium.photoUrl === 'string' ? { uri: aquarium.photoUrl } : aquarium.photoUrl}
@@ -106,13 +173,17 @@ export default function DashboardScreen() {
         <View style={styles.overlayGradient} />
 
         <SafeAreaView style={styles.contentContainer}>
+          {/* Top Header */}
           <View style={styles.topHeader}>
             <Text style={styles.brandTitle}>AQUASTAINABLE</Text>
             <View style={styles.pagePill}>
-              <Text style={styles.pagePillText}>{String(currentNumber).padStart(2, '0')} / {MOCK_AQUARIUMS.length}</Text>
+              <Text style={styles.pagePillText}>
+                {String(currentNumber).padStart(2, '0')} / {MOCK_AQUARIUMS.length}
+              </Text>
             </View>
           </View>
 
+          {/* Bottom Card Content */}
           <View style={styles.bottomSection}>
             <View style={styles.statusBadgeContainer}>
               <View style={[styles.statusDot, { backgroundColor: Colors.success }]} />
@@ -121,6 +192,7 @@ export default function DashboardScreen() {
 
             <Text style={styles.aquariumTitle}>{aquarium.name}</Text>
 
+            {/* Metrics Row */}
             <View style={styles.metricsRow}>
               <View style={styles.metricCard}>
                 <Text style={styles.metricLabel}>WATER TEMP</Text>
@@ -138,25 +210,8 @@ export default function DashboardScreen() {
               </View>
             </View>
 
-            <TouchableOpacity
-              style={styles.tankInfoButton}
-              activeOpacity={0.85}
-              onPress={() => router.push(`/tank/${aquarium.tankId}`)}
-            >
-              <View style={styles.swipeIndicator}>
-                <View style={styles.swipeHandle} />
-                <Text style={styles.swipeHint}>Swipe up</Text>
-              </View>
-
-              <View style={styles.tankInfoTextWrap}>
-                <Text style={styles.tankInfoTitle}>Tank info</Text>
-                <Text style={styles.tankInfoSubtitle}>Species, conditions & care tips</Text>
-              </View>
-
-              <Animated.View style={[styles.chevronWrap, { transform: [{ translateY: bounceY }] }]}> 
-                <IconSymbol name="chevron.up" size={18} color={Colors.white} />
-              </Animated.View>
-            </TouchableOpacity>
+            {/* Interactive Swipe Button */}
+            <SwipeButton onSwipe={() => router.push(`/tank/${aquarium.tankId}`)} />
           </View>
         </SafeAreaView>
       </ImageBackground>
@@ -244,7 +299,7 @@ const styles = StyleSheet.create({
   },
   metricsRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justify: 'space-between',
     marginBottom: 20,
   },
   metricCard: {
@@ -270,51 +325,37 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
   },
-  tankInfoButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    borderRadius: 22,
-    paddingVertical: 16,
-    paddingHorizontal: 18,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.14)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.12,
-    shadowRadius: 18,
-    elevation: 5,
-  },
-  swipeIndicator: {
-    alignItems: 'center',
-    marginRight: 16,
-  },
-  swipeHandle: {
-    width: 26,
-    height: 4,
-    borderRadius: 999,
-    backgroundColor: 'rgba(255, 255, 255, 0.45)',
-    marginBottom: 8,
-  },
-  swipeHint: {
-    color: Colors.gray,
-    fontSize: 10,
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-  },
-  tankInfoTextWrap: {
-    flex: 1,
-  },
-  tankInfoTitle: {
-    color: Colors.white,
-    fontSize: 16,
-    fontWeight: '800',
-    marginBottom: 4,
-  },
-  tankInfoSubtitle: {
-    color: Colors.lightBlue,
-    fontSize: 12,
-  },
 
+  /* Swipe Button Styles */
+  swipeTrack: {
+    height: 60,
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    borderRadius: 30,
+    justifyContent: 'center',
+    padding: SWIPE_PADDING,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.18)',
+    overflow: 'hidden',
+  },
+  swipeText: {
+    position: 'absolute',
+    alignSelf: 'center',
+    color: Colors.white,
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 1.5,
+  },
+  swipeThumb: {
+    width: SWIPE_THUMB_SIZE,
+    height: SWIPE_THUMB_SIZE,
+    borderRadius: SWIPE_THUMB_SIZE / 2,
+    backgroundColor: Colors.primary || '#3B82F6',
+    alignItems: 'center',
+    justify: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 4,
+  },
 });
