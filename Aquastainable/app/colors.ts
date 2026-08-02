@@ -20,7 +20,7 @@ export const Colors = {
 
 
   // splash screen glow
-  splashBlue: '#2FB6FF',
+  splashBlue: '#385B65',
   splashSalmon: '#FF7A59',
 
   // loading screen water
