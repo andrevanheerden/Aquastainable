@@ -27,7 +27,7 @@ const CARD_STRIDE = CARD_WIDTH + CARD_GAP;
 
 // Sample internet image URLs for fish & aquatic species thumbnails & preview
 const SPECIES_IMAGES = [
-  'https://images.unsplash.com/photo-1534575180408-b7d7c0136ee8?w=800&auto=format&fit=crop&q=80',
+  'https://i.pinimg.com/736x/d1/eb/64/d1eb6494b3aa36fd9da9e5d7423ab1ca.jpg',
   'https://images.unsplash.com/photo-1522069169874-c58ec4b76be5?w=800&auto=format&fit=crop&q=80',
   'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=800&auto=format&fit=crop&q=80',
   'https://images.unsplash.com/photo-1520301255226-bf5f144451c1?w=800&auto=format&fit=crop&q=80',
@@ -134,26 +134,46 @@ export default function TankInfoScreen() {
 
           {/* Hero Image Section */}
           <View style={styles.hero}>
-            {/* Thumbnail Column */}
-            <View style={styles.heroThumbColumn}>
-              {tank.species.map((s, i) => {
-                const selected = i === activeIndex;
-                return (
+            <View style={styles.heroSideColumn}>
+              <View style={styles.heroThumbStack}>
+                {tank.species.map((item, index) => (
                   <TouchableOpacity
-                    key={s.id}
-                    onPress={() => goToIndex(i)}
-                    activeOpacity={0.85}
-                    style={[styles.heroThumbContainer, selected && styles.heroThumbSelected]}
+                    key={item.id}
+                    onPress={() => goToIndex(index)}
+                    style={[
+                      styles.heroSmallThumb,
+                      index !== 0 && styles.heroSmallThumbSpacing,
+                      index === activeIndex && styles.heroSmallThumbSelected,
+                    ]}
+                    activeOpacity={0.9}
                   >
-                    <Image source={{ uri: getSpeciesImage(i) }} style={styles.heroThumbImage} />
+                    <Image
+                      source={{ uri: getSpeciesImage(index) }}
+                      style={styles.heroSmallThumbImage}
+                      resizeMode="cover"
+                    />
                   </TouchableOpacity>
-                );
-              })}
+                ))}
+              </View>
             </View>
 
-            {/* Main Preview Image */}
-            <View style={styles.heroPreview}>
-              <Image source={{ uri: getSpeciesImage(activeIndex) }} style={styles.heroPreviewImage} resizeMode="cover" />
+            <View style={styles.heroPreviewContainer}>
+              <View style={styles.heroPreviewBackground}>
+                <Image
+                  source={{ uri: getSpeciesImage(activeIndex) }}
+                  style={styles.heroPreviewBackgroundImage}
+                  blurRadius={24}
+                />
+                <View style={styles.heroPreviewOverlay} />
+              </View>
+              <View style={styles.heroCircleContainer}>
+                <View style={styles.heroCircleGlow} />
+                <Image
+                  source={{ uri: getSpeciesImage(activeIndex) }}
+                  style={styles.heroCircleImage}
+                  resizeMode="cover"
+                />
+              </View>
             </View>
           </View>
 
@@ -266,7 +286,7 @@ export default function TankInfoScreen() {
   );
 }
 
-const HERO_HEIGHT = 240;
+const HERO_HEIGHT = 260;
 const THUMB_SIZE = 58;
 
 const styles = StyleSheet.create({
@@ -309,41 +329,89 @@ const styles = StyleSheet.create({
 
   // Hero Section
   hero: {
-    flexDirection: 'row',
     height: HERO_HEIGHT,
     marginBottom: 28,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    overflow: 'visible',
   },
-  heroThumbColumn: {
-    justify: 'flex-start',
-    gap: 12,
-    marginRight: 16,
+  heroSideColumn: {
+    width: 90,
+    justifyContent: 'flex-start',
+    alignItems: 'center',
   },
-  heroThumbContainer: {
-    width: THUMB_SIZE,
-    height: THUMB_SIZE,
-    borderRadius: 16,
-    overflow: 'hidden',
+  heroThumbStack: {
+    marginTop: 8,
+  },
+  heroSmallThumb: {
+    width: 68,
+    height: 68,
+    borderRadius: 20,
     backgroundColor: '#1C1C1E',
-    opacity: 0.4,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 14 },
+    shadowOpacity: 0.18,
+    shadowRadius: 18,
+    elevation: 4,
   },
-  heroThumbSelected: {
-    opacity: 1,
+  heroSmallThumbSpacing: {
+    marginTop: 16,
+  },
+  heroSmallThumbSelected: {
     borderWidth: 2,
-    borderColor: '#FFFFFF',
+    borderColor: '#5B8CFF',
   },
-  heroThumbImage: {
+  heroSmallThumbImage: {
     width: '100%',
     height: '100%',
   },
-  heroPreview: {
-    flex: 1,
-    borderRadius: 24,
+  heroPreviewContainer: {
+    width: HERO_HEIGHT * 1.1,
+    height: HERO_HEIGHT * 1.1,
+    borderRadius: (HERO_HEIGHT * 1.1) / 2,
     overflow: 'hidden',
-    backgroundColor: '#1C1C1E',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: -40,
   },
-  heroPreviewImage: {
+  heroPreviewBackground: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  heroPreviewBackgroundImage: {
+    ...StyleSheet.absoluteFillObject,
+    opacity: 0.62,
+  },
+  heroPreviewOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(17, 17, 24, 0.45)',
+  },
+  heroCircleContainer: {
     width: '100%',
     height: '100%',
+    borderRadius: (HERO_HEIGHT * 1.1) / 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#1A2638',
+    shadowOffset: { width: 0, height: 26 },
+    shadowOpacity: 0.28,
+    shadowRadius: 42,
+    elevation: 20,
+    overflow: 'hidden',
+  },
+  heroCircleGlow: {
+    position: 'absolute',
+    width: '150%',
+    height: '150%',
+    borderRadius: 999,
+    backgroundColor: 'rgba(91, 140, 255, 0.18)',
+    transform: [{ scale: 1.12 }],
+  },
+  heroCircleImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: (HERO_HEIGHT * 1.1) / 2,
   },
 
   // Section Headers & Text
