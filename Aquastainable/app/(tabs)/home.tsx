@@ -2,7 +2,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   Animated,
-  Easing,
+  Dimensions,
+  FlatList,
   ImageBackground,
   PanResponder,
   SafeAreaView,
@@ -16,6 +17,8 @@ import { useRouter } from 'expo-router';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import Colors from '../colors';
 
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
 const aquariumImage1 = require('../../assets/fishTank/FishTankForest.jpeg');
 const aquariumImage2 = require('../../assets/fishTank/FishTankLiveingRoom.jpeg');
 const aquariumImage3 = require('../../assets/fishTank/FishTankTree.jpeg');
@@ -27,6 +30,7 @@ type AquariumData = {
   waterTempC: number;
   nextWaterChangeDays: number;
   aiSafetyStatus: 'Optimal' | 'Attention Required' | 'Critical';
+  aiBioload: number;
   photoUrl: string | number;
 };
 
@@ -38,6 +42,7 @@ const MOCK_AQUARIUMS: AquariumData[] = [
     waterTempC: 25.4,
     nextWaterChangeDays: 3,
     aiSafetyStatus: 'Optimal',
+    aiBioload: 68,
     photoUrl: aquariumImage1,
   },
   {
@@ -47,6 +52,7 @@ const MOCK_AQUARIUMS: AquariumData[] = [
     waterTempC: 26.1,
     nextWaterChangeDays: 1,
     aiSafetyStatus: 'Attention Required',
+    aiBioload: 89,
     photoUrl: aquariumImage2,
   },
   {
@@ -56,6 +62,7 @@ const MOCK_AQUARIUMS: AquariumData[] = [
     waterTempC: 24.8,
     nextWaterChangeDays: 4,
     aiSafetyStatus: 'Optimal',
+    aiBioload: 42,
     photoUrl: aquariumImage3,
   },
 ];
@@ -67,6 +74,7 @@ const SWIPE_PADDING = 4;
 function SwipeButton({ onSwipe }: { onSwipe: () => void }) {
   const pan = useRef(new Animated.Value(0)).current;
   const [containerWidth, setContainerWidth] = useState(0);
+  const containerWidthRef = useRef(0);
 
   const maxTranslate = Math.max(0, containerWidth - SWIPE_THUMB_SIZE - SWIPE_PADDING * 2);
 
@@ -75,14 +83,23 @@ function SwipeButton({ onSwipe }: { onSwipe: () => void }) {
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: (_, gestureState) => Math.abs(gestureState.dx) > Math.abs(gestureState.dy),
       onPanResponderMove: (_, gestureState) => {
-        const newValue = Math.max(0, Math.min(gestureState.dx, maxTranslate));
+        const activeMaxTranslate = Math.max(
+          0,
+          containerWidthRef.current - SWIPE_THUMB_SIZE - SWIPE_PADDING * 2
+        );
+        const newValue = Math.max(0, Math.min(gestureState.dx, activeMaxTranslate));
         pan.setValue(newValue);
       },
       onPanResponderRelease: (_, gestureState) => {
-        if (gestureState.dx >= maxTranslate * 0.75) {
+        const activeMaxTranslate = Math.max(
+          0,
+          containerWidthRef.current - SWIPE_THUMB_SIZE - SWIPE_PADDING * 2
+        );
+
+        if (gestureState.dx >= activeMaxTranslate * 0.75) {
           // Snap to end and trigger callback
           Animated.timing(pan, {
-            toValue: maxTranslate,
+            toValue: activeMaxTranslate,
             duration: 120,
             useNativeDriver: true,
           }).start(() => {
@@ -110,7 +127,7 @@ function SwipeButton({ onSwipe }: { onSwipe: () => void }) {
 
   // Fade out text as the button is dragged
   const textOpacity = pan.interpolate({
-    inputRange: [0, maxTranslate * 0.5 || 1],
+    inputRange: [0, Math.max(1, maxTranslate * 0.5)],
     outputRange: [1, 0],
     extrapolate: 'clamp',
   });
@@ -118,7 +135,10 @@ function SwipeButton({ onSwipe }: { onSwipe: () => void }) {
   return (
     <View
       style={styles.swipeTrack}
-      onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}
+      onLayout={(e) => {
+        containerWidthRef.current = e.nativeEvent.layout.width;
+        setContainerWidth(e.nativeEvent.layout.width);
+      }}
     >
       <Animated.Text style={[styles.swipeText, { opacity: textOpacity }]}>
         SWIPE FOR TANK INFO
@@ -142,6 +162,11 @@ function SwipeButton({ onSwipe }: { onSwipe: () => void }) {
 export default function HomeScreen() {
   const router = useRouter();
   const [activeIndex, setActiveIndex] = useState(0);
+  const [activeMetricIndex, setActiveMetricIndex] = useState(0);
+
+  const metricsCardWidth = (SCREEN_WIDTH - 40 - 16) / 3;
+  const metricsCardGap = 8;
+  const metricsStepWidth = metricsCardWidth + metricsCardGap;
 
   // Vertical Screen Swipe Gesture (Switch Aquariums)
   const screenPanResponder = useRef(
@@ -161,6 +186,15 @@ export default function HomeScreen() {
 
   const aquarium = MOCK_AQUARIUMS[activeIndex];
   const currentNumber = activeIndex + 1;
+
+  const metricsData = [
+    { id: '1', label: 'WATER TEMP', value: `${aquarium.waterTempC}°C`, accent: Colors.lightBlue },
+    { id: '2', label: 'NEXT CHANGE', value: `${aquarium.nextWaterChangeDays} Days`, accent: Colors.white },
+    { id: '3', label: 'VOLUME', value: `${aquarium.tankSizeGallons} Gal`, accent: Colors.lightBlue },
+    { id: '4', label: 'AI BIOLOAD', value: `${aquarium.aiBioload}%`, accent: aquarium.aiBioload > 80 ? Colors.warning : Colors.success },
+  ];
+
+  const metricPageCount = metricsData.length;
 
   return (
     <View style={styles.container} {...screenPanResponder.panHandlers}>
@@ -192,21 +226,43 @@ export default function HomeScreen() {
 
             <Text style={styles.aquariumTitle}>{aquarium.name}</Text>
 
-            {/* Metrics Row */}
-            <View style={styles.metricsRow}>
-              <View style={styles.metricCard}>
-                <Text style={styles.metricLabel}>WATER TEMP</Text>
-                <Text style={styles.metricValue}>{aquarium.waterTempC}°C</Text>
-              </View>
+            <View style={styles.metricsCarouselWrap}>
+              <FlatList
+                data={metricsData}
+                keyExtractor={(item) => item.id}
+                horizontal
+                pagingEnabled
+                showsHorizontalScrollIndicator={false}
+                snapToInterval={metricsStepWidth}
+                snapToAlignment="start"
+                decelerationRate="fast"
+                contentContainerStyle={styles.metricsListContent}
+                onMomentumScrollEnd={(event) => {
+                  const offsetX = event.nativeEvent.contentOffset.x;
+                  const nextIndex = Math.round(offsetX / metricsStepWidth);
+                  setActiveMetricIndex(Math.min(Math.max(nextIndex, 0), metricPageCount - 1));
+                }}
+                getItemLayout={(_, index) => ({
+                  length: metricsStepWidth,
+                  offset: metricsStepWidth * index,
+                  index,
+                })}
+                renderItem={({ item }) => (
+                  <View style={[styles.metricCard, { width: metricsCardWidth }]}>
+                    <View style={styles.metricCardGlow} />
+                    <Text style={styles.metricLabel}>{item.label}</Text>
+                    <Text style={[styles.metricValue, { color: item.accent }]}>{item.value}</Text>
+                  </View>
+                )}
+              />
 
-              <View style={styles.metricCard}>
-                <Text style={styles.metricLabel}>NEXT CHANGE</Text>
-                <Text style={styles.metricValue}>{aquarium.nextWaterChangeDays} Days</Text>
-              </View>
-
-              <View style={styles.metricCard}>
-                <Text style={styles.metricLabel}>VOLUME</Text>
-                <Text style={styles.metricValue}>{aquarium.tankSizeGallons} Gal</Text>
+              <View style={styles.metricDots}>
+                {Array.from({ length: metricPageCount }).map((_, index) => (
+                  <View
+                    key={`metric-page-${index}`}
+                    style={[styles.metricDot, index === activeMetricIndex && styles.metricDotActive]}
+                  />
+                ))}
               </View>
             </View>
 
@@ -297,21 +353,33 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     letterSpacing: 0.5,
   },
-  metricsRow: {
-    flexDirection: 'row',
-    justify: 'space-between',
+  metricsCarouselWrap: {
     marginBottom: 20,
   },
+  metricsListContent: {
+    paddingHorizontal: 0,
+  },
   metricCard: {
-    flex: 1,
-    backgroundColor: 'rgba(18, 18, 18, 0.82)',
-    paddingVertical: 14,
-    paddingHorizontal: 10,
+    height: 76,
+    backgroundColor: Colors.background,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
     borderRadius: 16,
-    marginHorizontal: 4,
+    marginRight: 8,
     alignItems: 'center',
+    justifyContent: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: 'rgba(255, 255, 255, 0.14)',
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.24,
+    shadowRadius: 10,
+    elevation: 5,
+  },
+  metricCardGlow: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'transparent',
   },
   metricLabel: {
     color: Colors.gray,
@@ -324,6 +392,23 @@ const styles = StyleSheet.create({
     color: Colors.white,
     fontSize: 16,
     fontWeight: '700',
+  },
+  metricDots: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginTop: 8,
+  },
+  metricDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    marginHorizontal: 3,
+  },
+  metricDotActive: {
+    width: 18,
+    backgroundColor: Colors.lightBlue,
+    borderRadius: 999,
   },
 
   /* Swipe Button Styles */
