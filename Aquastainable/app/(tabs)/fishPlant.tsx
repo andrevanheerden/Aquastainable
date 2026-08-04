@@ -1,11 +1,12 @@
 import React from 'react';
 import { SafeAreaView, ScrollView, StyleSheet, View } from 'react-native';
+import { useLocalSearchParams } from 'expo-router';
 
 import MainFishDisplay from '@/components/fish&Plants/MainFishDisplay';
 import SpeciesOverview from '@/components/fish&Plants/SpeciesOverview';
 import CareCards from '@/components/fish&Plants/CareCards';
 import FishLogGrid from '@/components/fish&Plants/FishLogGrid';
-import { getTankDetail } from '@/app/data/tankDetails';
+import { getTankDetail, Species } from '@/app/data/tankDetails';
 
 const MAIN_FISH_IMAGE = require('../../assets/fishTank/guppy.jpg');
 
@@ -16,8 +17,10 @@ const defaultCareItems = [
 ];
 
 export default function FishPlantScreen() {
-  const tank = getTankDetail('1');
-  const mainSpecies = tank?.species?.[0];
+  const { speciesId } = useLocalSearchParams<{ speciesId?: string }>();
+  const tankIds = ['1', '2', '3'];
+  const allSpecies = tankIds.flatMap((tankId) => getTankDetail(tankId)?.species ?? []);
+  const mainSpecies = allSpecies.find((item) => item.id === speciesId) ?? allSpecies[0];
   const careItems = [...defaultCareItems];
   if (mainSpecies) {
     careItems.push({ label: 'Feed type', value: mainSpecies.feeding });
@@ -32,8 +35,11 @@ export default function FishPlantScreen() {
           <MainFishDisplay
             image={MAIN_FISH_IMAGE}
             title={mainSpecies?.name ?? 'Guppy'}
+            subtitle={mainSpecies?.summary}
             origin={mainSpecies?.origin}
             lifespan={mainSpecies?.lifespan}
+            preferredTempC={mainSpecies?.preferredTempC}
+            feeding={mainSpecies?.feeding}
           />
         </View>
 

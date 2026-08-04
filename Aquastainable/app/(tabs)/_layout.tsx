@@ -35,9 +35,9 @@ export default function TabLayout() {
           }}
         />
         <Tabs.Screen
-          name="fishPlant"
+          name="species"
           options={{
-            title: 'Fish & Plant',
+            title: 'Species',
             tabBarIcon: ({ color }: { color?: string }) => <IconSymbol size={28} name="fish.fill" color={color ?? tintColor} />,
           }}
         />

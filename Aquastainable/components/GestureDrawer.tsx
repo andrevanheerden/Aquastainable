@@ -100,9 +100,9 @@ export function GestureDrawer({ children }: GestureDrawerProps) {
             />
             <DrawerItem
               icon="fish.fill"
-              label="Fish & Plant"
-              isActive={currentPath.includes('fishPlant')}
-              onPress={() => navigateTo('/(tabs)/fishPlant')}
+              label="Species"
+              isActive={currentPath.includes('species')}
+              onPress={() => navigateTo('/(tabs)/species')}
             />
           </View>
 
