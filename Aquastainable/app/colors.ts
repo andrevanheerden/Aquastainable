@@ -1,15 +1,15 @@
 
 export const Colors = {
-  background: "#16151A", // main app background — pure black as requested
-  surface: "#121212", // slightly raised panels/cards on top of black
-  primary: "#D6164B", // crimson/pink-red from your style guide
-  teal: "#1F4A57", // dark teal from the logo
-  orange: "#D9701F", // orange from the logo
-  lightBlue: "#A8C4CB", // lighter blue variant matching the logo hue
+  background: "#16151A", 
+  surface: "#121212", 
+  primary: "#D6164B", 
+  teal: "#1F4A57", 
+  orange: "#D9701F", 
+  lightBlue: "#A8C4CB", 
   white: "#FFFFFF",
   gray: "#8A8A8A",
 
-  info: "#6C98A0", // logo-inspired blue for buttons, splash, and palette accents
+  info: "#6C98A0", 
   success: "#37F611",
   warning: "#FFB01F",
   error: "#EB5757",

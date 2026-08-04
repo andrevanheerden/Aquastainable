@@ -48,24 +48,51 @@ const PILLS: PillItem[] = [
   },
 ];
 
+function getActivePillStyle(pillId: string) {
+  switch (pillId) {
+    case 'sickness':
+      return {
+        borderColor: Colors.primary,
+        backgroundColor: `${Colors.primary}33`,
+      };
+    case 'water':
+      return {
+        borderColor: Colors.success,
+        backgroundColor: `${Colors.success}33`,
+      };
+    case 'tank':
+      return {
+        borderColor: Colors.teal,
+        backgroundColor: `${Colors.teal}33`,
+      };
+    default:
+      return {
+        borderColor: Colors.info,
+        backgroundColor: `${Colors.info}33`,
+      };
+  }
+}
+
 export default function SuggestionPills({ activeTheme, onSelectPill }: SuggestionPillsProps) {
   return (
     <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
       <View style={styles.grid}>
         {PILLS.map((pill) => {
           const isActive = activeTheme === pill.theme;
+          const activePillStyle = isActive ? getActivePillStyle(pill.id) : undefined;
+
           return (
             <TouchableOpacity
               key={pill.id}
-              style={[styles.pill, isActive && styles.activePill]}
+              style={[styles.pill, isActive && activePillStyle]}
               onPress={() => onSelectPill(pill.theme)}
               activeOpacity={0.7}
             >
               <View style={styles.iconWrapper}>
                 {pill.iconType === 'ion' ? (
-                  <Ionicons name={pill.iconName as any} size={18} color="#C084FC" />
+                  <Ionicons name={pill.iconName as any} size={18} color="#FFFFFF" />
                 ) : (
-                  <MaterialCommunityIcons name={pill.iconName as any} size={18} color="#C084FC" />
+                  <MaterialCommunityIcons name={pill.iconName as any} size={18} color="#FFFFFF" />
                 )}
               </View>
               <Text style={styles.pillText}>{pill.label}</Text>
@@ -97,10 +124,6 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 24,
-  },
-  activePill: {
-    borderColor: Colors.waterFill,
-    backgroundColor: `${Colors.waterFill}22`,
   },
   iconWrapper: {
     marginRight: 8,
