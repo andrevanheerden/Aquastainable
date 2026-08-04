@@ -16,18 +16,18 @@ const THEME_COLORS: Record<ThemeType, ThemeColors> = {
   },
   midnight: {
     bg: Colors.background,
-    top: Colors.waterFillLight,
-    bottom: Colors.info,
+    top: Colors.teal,
+    bottom: Colors.lightBlue,
   },
   emerald: {
     bg: Colors.background,
-    top: Colors.waterFillLight,
-    bottom: Colors.info,
+    top: Colors.success,
+    bottom: Colors.waterFillLight,
   },
   crimson: {
     bg: Colors.background,
-    top: Colors.waterFillLight,
-    bottom: Colors.info,
+    top: Colors.primary,
+    bottom: Colors.orange,
   },
 };
 

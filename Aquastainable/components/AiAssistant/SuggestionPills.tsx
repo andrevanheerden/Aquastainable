@@ -41,7 +41,7 @@ const PILLS: PillItem[] = [
   },
   {
     id: 'fish',
-    label: 'Fish Questions',
+    label: 'Basic Questions',
     theme: 'default',
     iconName: 'fish-outline',
     iconType: 'ion',
