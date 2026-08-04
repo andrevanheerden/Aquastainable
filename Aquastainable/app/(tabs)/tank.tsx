@@ -32,16 +32,20 @@ const TILE_GAP = 16;
 const TILE_WIDTH = (SCREEN_WIDTH - 40 - TILE_GAP) / 2;
 const TILE_HEIGHT = 250;
 
-// Sample internet image URLs for fish & aquatic species thumbnails & preview
-const SPECIES_IMAGES = [
-  'https://i.pinimg.com/736x/d1/eb/64/d1eb6494b3aa36fd9da9e5d7423ab1ca.jpg',
-  'https://images.unsplash.com/photo-1522069169874-c58ec4b76be5?w=800&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=800&auto=format&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1520301255226-bf5f144451c1?w=800&auto=format&fit=crop&q=80',
-];
+const TANK_IMAGES = {
+  '1': require('../../assets/fishTank/FishTankForest.jpeg'),
+  '2': require('../../assets/fishTank/FishTankLiveingRoom.jpeg'),
+  '3': require('../../assets/fishTank/FishTankTree.jpeg'),
+};
 
-function getSpeciesImage(index: number) {
-  return SPECIES_IMAGES[index % SPECIES_IMAGES.length];
+const SPECIES_IMAGES: Record<string, string | number> = {
+  f1: require('../../assets/fishTank/guppy.jpg'),
+  f2: require('../../assets/fishTank/goldFish.jpg'),
+  f3: require('../../assets/fishTank/duckweed.jpeg'),
+};
+
+function getSpeciesImage(speciesId: string, index: number) {
+  return SPECIES_IMAGES[speciesId] ?? Object.values(SPECIES_IMAGES)[index % Object.keys(SPECIES_IMAGES).length];
 }
 
 // ConditionTile and SpeciesCard moved to components/tank/
@@ -97,31 +101,30 @@ export default function TankInfoScreen() {
           
           <HeaderRow onBack={() => router.back()} onMenu={() => {}} />
 
-          {/* Title + Scientific Subtitle */}
-          <Text style={styles.tankName}>{activeSpecies.name}</Text>
-          <Text style={styles.tankSubtitle}>{activeSpecies.speciesName}</Text>
+          {/* Title + Subtitle */}
+          <Text style={styles.tankName}>{tank.tankName}</Text>
+          <Text style={styles.tankSubtitle}>Fresh water</Text>
 
           {/* Hero Image Section */}
           <View style={styles.hero}>
             <View style={styles.heroSideColumn}>
               <View style={styles.heroThumbStack}>
                 {tank.species.map((item, index) => (
-                  <TouchableOpacity
+                  <View
                     key={item.id}
-                    onPress={() => goToIndex(index)}
                     style={[
                       styles.heroSmallThumb,
                       index !== 0 && styles.heroSmallThumbSpacing,
-                      index === activeIndex && styles.heroSmallThumbSelected,
                     ]}
-                    activeOpacity={0.9}
                   >
                     <Image
-                      source={{ uri: getSpeciesImage(index) }}
+                      source={typeof getSpeciesImage(item.id, index) === 'string'
+                        ? { uri: getSpeciesImage(item.id, index) as string }
+                        : getSpeciesImage(item.id, index)}
                       style={styles.heroSmallThumbImage}
                       resizeMode="cover"
                     />
-                  </TouchableOpacity>
+                  </View>
                 ))}
               </View>
             </View>
@@ -129,7 +132,7 @@ export default function TankInfoScreen() {
             <View style={styles.heroPreviewContainer}>
               <View style={styles.heroPreviewBackground}>
                 <Image
-                  source={{ uri: getSpeciesImage(activeIndex) }}
+                  source={TANK_IMAGES[tank.tankId] ?? TANK_IMAGES['1']}
                   style={styles.heroPreviewBackgroundImage}
                   blurRadius={24}
                 />
@@ -138,7 +141,7 @@ export default function TankInfoScreen() {
               <View style={styles.heroCircleContainer}>
                 <View style={styles.heroCircleGlow} />
                 <Image
-                  source={{ uri: getSpeciesImage(activeIndex) }}
+                  source={TANK_IMAGES[tank.tankId] ?? TANK_IMAGES['1']}
                   style={styles.heroCircleImage}
                   resizeMode="cover"
                 />

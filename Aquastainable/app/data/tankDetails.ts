@@ -30,6 +30,7 @@ export type TankConditions = {
 
 export type TankDetail = {
   tankId: string;
+  tankName: string;
   overviewSummary: string;
   conditions: TankConditions;
   species: Species[];
@@ -39,6 +40,7 @@ export type TankDetail = {
 const TANK_DETAILS: Record<string, TankDetail> = {
   '1': {
     tankId: '1',
+    tankName: 'Amazonian Reef Tank',
     overviewSummary:
       'Your Amazonian Reef Tank is stable — temperature and pH are holding steady, and your last three water changes have kept ammonia and nitrite at safe levels.',
     conditions: {
@@ -53,39 +55,39 @@ const TANK_DETAILS: Record<string, TankDetail> = {
       {
         id: 'f1',
         type: 'fish',
-        name: 'Cardinal Tetra',
-        speciesName: 'Paracheirodon axelrodi',
-        origin: 'Amazon Basin, South America',
-        lifespan: '4-5 years',
-        preferredTempC: '23-27°C',
-        feeding: 'Small flakes, 2x daily',
+        name: 'Guppy',
+        speciesName: 'Poecilia reticulata',
+        origin: 'South America',
+        lifespan: '2-3 years',
+        preferredTempC: '24-26°C',
+        feeding: 'Flakes, 2x daily',
         schoolSize: '6+ recommended',
-        summary: 'Peaceful schooling fish, best kept in groups — colors deepen with a planted, dimly lit tank.',
+        summary: 'Small, colorful community fish that thrives in planted tanks.',
         favorite: true,
       },
       {
         id: 'f2',
         type: 'fish',
-        name: 'Amazon Sword',
-        speciesName: 'Echinodorus grisebachii',
-        origin: 'Amazon Basin, South America',
-        lifespan: '3+ years',
-        preferredTempC: '22-28°C',
-        feeding: 'Root tabs monthly, liquid fertilizer weekly',
-        schoolSize: 'N/A — single plant',
-        summary: 'Broad-leafed background plant — needs nutrient-rich substrate to really take off.',
+        name: 'Goldfish',
+        speciesName: 'Carassius auratus',
+        origin: 'East Asia',
+        lifespan: '5-10 years',
+        preferredTempC: '20-24°C',
+        feeding: 'Pellets, 1-2x daily',
+        schoolSize: 'Pair or small group',
+        summary: 'Hardy, peaceful fish with bright orange coloration and a calm temperament.',
       },
       {
         id: 'f3',
-        type: 'fish',
-        name: 'Bristlenose Pleco',
-        speciesName: 'Ancistrus cirrhosus',
-        origin: 'South America',
-        lifespan: '10-12 years',
-        preferredTempC: '23-27°C',
-        feeding: 'Algae wafers, 1x daily',
-        schoolSize: 'Solitary or pairs',
-        summary: 'Hardy algae-eater, mostly active at night — great low-maintenance cleanup crew.',
+        type: 'plant',
+        name: 'Duck Weed',
+        speciesName: 'Lemna minor',
+        origin: 'Worldwide freshwater',
+        lifespan: 'Perennial',
+        preferredTempC: '18-26°C',
+        feeding: 'Nutrients from water; no substrate needed',
+        schoolSize: 'Float in groups',
+        summary: 'Fast-growing floating plant used for natural filtration and surface cover.',
       },
     ],
     careTips: [
@@ -96,6 +98,7 @@ const TANK_DETAILS: Record<string, TankDetail> = {
   },
   '2': {
     tankId: '2',
+    tankName: 'Nano Betta Sanctuary',
     overviewSummary:
       'Nano Betta Sanctuary needs attention — nitrite has crept up since your last test, likely from the recent feeding increase. A water change is recommended in the next day.',
     conditions: {
@@ -141,6 +144,7 @@ const TANK_DETAILS: Record<string, TankDetail> = {
   },
   '3': {
     tankId: '3',
+    tankName: 'Treehouse Aquascape',
     overviewSummary:
       'Treehouse Aquascape is in good shape overall — water parameters are within range, though your last test was a little over a week ago and is due for a refresh.',
     conditions: {

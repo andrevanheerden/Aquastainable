@@ -7,15 +7,20 @@ type Props = {
   index: number;
   favorites: Set<string>;
   toggleFavorite: (id: string) => void;
-  getSpeciesImage: (index: number) => string;
+  getSpeciesImage: () => string | number;
   cardWidth: number;
 };
 
 export default function SpeciesCard({ item, index, favorites, toggleFavorite, getSpeciesImage, cardWidth }: Props) {
+  const imageSource = getSpeciesImage();
+
   return (
     <View style={[localStyles.speciesCard, { width: cardWidth }]}>
       <View style={localStyles.speciesCardHeader}>
-        <Image source={{ uri: getSpeciesImage(index) }} style={localStyles.speciesAvatarImage} />
+        <Image
+          source={typeof imageSource === 'string' ? { uri: imageSource } : imageSource}
+          style={localStyles.speciesAvatarImage}
+        />
         <View style={localStyles.speciesCardHeaderText}>
           <Text style={localStyles.speciesName}>{item.name}</Text>
           <Text style={localStyles.speciesScientific}>{item.speciesName}</Text>
