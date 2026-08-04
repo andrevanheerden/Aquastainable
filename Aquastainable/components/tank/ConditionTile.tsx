@@ -113,7 +113,7 @@ const localStyles = StyleSheet.create({
   conditionTileValueTop: {
     color: '#FFFFFF',
     fontSize: 20,
-    fontWeight: '800',
+    fontWeight: '400',
     textAlign: 'left',
     marginBottom: 6,
   },

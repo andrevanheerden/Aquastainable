@@ -1,4 +1,4 @@
-// app/tank/[id].tsx
+// app/(tabs)/tank.tsx
 import React, { useRef, useState } from 'react';
 import {
   Dimensions,
@@ -20,6 +20,7 @@ import HeaderRow from '@/components/tank/HeaderRow';
 import OverviewSection from '@/components/tank/OverviewSection';
 import NeedToKnow from '@/components/tank/NeedToKnow';
 import FishPlants from '@/components/tank/FishPlants';
+import WaterTestCard from '@/components/tank/WaterTestCard';
 import Colors from '../colors';
 import { getTankDetail, Species } from '../data/tankDetails';
 
@@ -149,6 +150,8 @@ export default function TankInfoScreen() {
 
           <NeedToKnow conditions={tank.conditions} />
 
+          <WaterTestCard conditions={tank.conditions} />
+
           <FishPlants
             species={tank.species}
             speciesListRef={speciesListRef}
@@ -171,10 +174,7 @@ export default function TankInfoScreen() {
             </View>
           )}
 
-          {/* Action Button */}
-          <TouchableOpacity style={styles.actionButton} activeOpacity={0.9}>
-            <Text style={styles.actionButtonText}>View Tank Schedule</Text>
-          </TouchableOpacity>
+          {/* Action Button removed per request */}
 
         </ScrollView>
       </SafeAreaView>
@@ -193,6 +193,12 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 20,
     paddingBottom: 40,
+  },
+  tankName: {
+    color: '#FFFFFF',
+    fontSize: 28,
+    fontWeight: '800',
+    marginTop: 8,
   },
   headerRow: {
     flexDirection: 'row',
@@ -323,27 +329,14 @@ const styles = StyleSheet.create({
     width: 16,
   },
 
-  // Action Button
-  actionButton: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 28,
-    height: 56,
-    alignItems: 'center',
-    justify: 'center',
-    marginTop: 32,
-  },
-  actionButtonText: {
-    color: '#000000',
-    fontSize: 16,
-    fontWeight: '700',
-  },
+  // Action Button removed
 
   // Missing screen fallback
   missingContainer: {
     flex: 1,
     backgroundColor: '#121214',
     alignItems: 'center',
-    justify: 'center',
+    justifyContent: 'center',
   },
   missingText: {
     color: '#FFFFFF',
