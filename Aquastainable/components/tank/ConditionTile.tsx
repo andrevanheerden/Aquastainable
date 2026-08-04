@@ -23,9 +23,11 @@ export default function ConditionTile({
   tileHeight,
   valueOnTop = false,
 }: Props) {
+  const resolvedImageSize = imageSize ?? 80;
+
   const tileStyle = [
     localStyles.conditionTile,
-    valueOnTop ? { alignItems: 'flex-start' } : null,
+    valueOnTop ? { alignItems: 'flex-start', justifyContent: 'flex-start' } : { alignItems: 'center', justifyContent: 'space-between' },
     tileHeight ? { height: tileHeight } : null,
   ];
 
@@ -56,22 +58,21 @@ export default function ConditionTile({
 
   return (
     <View style={tileStyle}>
-      <Text style={localStyles.conditionTileLabel}>{label}</Text>
-      <View style={localStyles.conditionIconContainer}>
+      <Text style={localStyles.conditionTileLabelTop}>{label}</Text>
+
+      <View style={localStyles.iconTopContainer}>
         {imageSource ? (
           <Image
             source={imageSource}
-            style={[
-              localStyles.conditionIconImage,
-              imageSize ? { width: imageSize, height: imageSize } : null,
-            ]}
+            style={[localStyles.conditionIconImage, { width: resolvedImageSize, height: resolvedImageSize }]}
             onError={() => {}}
           />
         ) : (
-          <IconSymbol name={iconName ?? 'question'} size={36} color={accentColor} />
+          <IconSymbol name={iconName ?? 'question'} size={Math.max(36, resolvedImageSize)} color={accentColor} />
         )}
       </View>
-      <Text style={localStyles.conditionTileValue}>{value}</Text>
+
+      <Text style={localStyles.conditionTileValueBelow}>{value}</Text>
     </View>
   );
 }
@@ -131,6 +132,25 @@ const localStyles = StyleSheet.create({
     flexDirection: 'column',
     alignItems: 'flex-start',
     justifyContent: 'center',
+  },
+  iconTopContainer: {
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    marginTop: 8,
+  },
+  conditionTileLabelTop: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  conditionTileValueBelow: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginTop: 8,
   },
   conditionTileLabelBelow: {
     color: '#8E8E93',

@@ -30,48 +30,48 @@ export default function NeedToKnow({ conditions }: Props) {
         <ConditionTile
           label="Tank Temp"
           value={preferredTempC}
-          valueOnTop
-          tileHeight={130}
+          tileHeight={200}
+          imageSize={80}
           imageSource={require('../../assets/icons/temp.png')}
         />
 
         <ConditionTile
           label="pH Level"
           value={ph}
-          valueOnTop
-          tileHeight={130}
+          tileHeight={200}
+          imageSize={80}
           imageSource={require('../../assets/icons/PH.png')}
         />
 
         <ConditionTile
           label="Tank Size"
           value={tankSize}
-          valueOnTop
-          tileHeight={130}
+          tileHeight={200}
+          imageSize={80}
           imageSource={require('../../assets/icons/tank.png')}
         />
 
         <ConditionTile
           label="Water Change"
           value={waterChangeInterval}
-          valueOnTop
-          tileHeight={130}
+          tileHeight={200}
+          imageSize={80}
           imageSource={require('../../assets/icons/water.png')}
         />
 
         <ConditionTile
           label="Bioload"
           value={bioload}
-          valueOnTop
-          tileHeight={130}
+          tileHeight={200}
+          imageSize={80}
           imageSource={require('../../assets/icons/bio.png')}
         />
 
         <ConditionTile
           label="Next Change"
           value={nextWaterChange}
-          valueOnTop
-          tileHeight={130}
+          tileHeight={200}
+          imageSize={80}
           imageSource={require('../../assets/icons/date.png')}
         />
       </View>
