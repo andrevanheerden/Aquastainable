@@ -56,6 +56,13 @@ export default function TabLayout() {
           }}
         />
         <Tabs.Screen
+          name="AskAIScreen"
+          options={{
+            title: 'AI Assistant',
+            tabBarIcon: ({ color }: { color?: string }) => <IconSymbol size={28} name="sparkles" color={color ?? tintColor} />,
+          }}
+        />
+        <Tabs.Screen
           name="waterTestDetails"
           options={{
             href: null,

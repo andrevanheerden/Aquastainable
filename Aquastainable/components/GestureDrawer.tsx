@@ -141,6 +141,12 @@ export function GestureDrawer({ children }: GestureDrawerProps) {
               isActive={currentPath.includes('waterTest')}
               onPress={() => navigateTo('/(tabs)/waterTest')}
             />
+            <DrawerItem
+              icon="sparkles"
+              label="AI Assistant"
+              isActive={currentPath.includes('AskAIScreen')}
+              onPress={() => navigateTo('/(tabs)/AskAIScreen')}
+            />
           </View>
 
           <View style={styles.footerSection}>
