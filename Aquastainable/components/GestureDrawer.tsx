@@ -135,6 +135,12 @@ export function GestureDrawer({ children }: GestureDrawerProps) {
               isActive={currentPath.includes('plantSpecies')}
               onPress={() => navigateTo('/(tabs)/plantSpecies')}
             />
+            <DrawerItem
+              icon="drop.fill"
+              label="Water Test"
+              isActive={currentPath.includes('waterTest')}
+              onPress={() => navigateTo('/(tabs)/waterTest')}
+            />
           </View>
 
           <View style={styles.footerSection}>
