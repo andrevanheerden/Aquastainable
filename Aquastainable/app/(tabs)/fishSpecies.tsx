@@ -19,7 +19,7 @@ export default function FishSpeciesScreen() {
     .filter((item) => item.type === 'fish');
 
   const handlePress = (item: Species) => {
-    router.push({ pathname: '/(tabs)/fishPlant', params: { speciesId: item.id } });
+    router.push({ pathname: '/(tabs)/fishDetails', params: { speciesId: item.id } });
   };
 
   return (
