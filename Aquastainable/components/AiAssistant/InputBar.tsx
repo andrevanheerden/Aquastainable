@@ -31,7 +31,7 @@ export default function InputBar() {
 const styles = StyleSheet.create({
   container: {
     paddingHorizontal: 20,
-    paddingBottom: 30,
+    paddingBottom: 80,
     paddingTop: 6,
   },
   inputWrapper: {
