@@ -153,7 +153,7 @@ function SwipeButton({ onSwipe }: { onSwipe: () => void }) {
           },
         ]}
       >
-        <IconSymbol name="chevron.right" size={22} color={Colors.white} />
+        <IconSymbol name="chevron.right" size={22} color={Colors.white} style={styles.swipeIcon} />
       </Animated.View>
     </View>
   );
@@ -434,13 +434,17 @@ const styles = StyleSheet.create({
     width: SWIPE_THUMB_SIZE,
     height: SWIPE_THUMB_SIZE,
     borderRadius: SWIPE_THUMB_SIZE / 2,
-    backgroundColor: Colors.primary || '#3B82F6',
+    backgroundColor: Colors.info || '#3B82F6',
     alignItems: 'center',
-    justify: 'center',
+    justifyContent: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 6,
     elevation: 4,
+  },
+  swipeIcon: {
+    textAlign: 'center',
+    includeFontPadding: false,
   },
 });

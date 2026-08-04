@@ -131,7 +131,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     textAlign: 'center',
     textAlignVertical: 'center',
-    color: Colors.white,
+    color: Colors.info,
     fontSize: 40,
     fontWeight: '700',
     letterSpacing: 1,

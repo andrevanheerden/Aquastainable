@@ -105,7 +105,7 @@ export function GestureDrawer({ children }: GestureDrawerProps) {
         <View style={styles.drawerInnerContent}>
           <View style={styles.profileSection}>
             <Image
-              source={{ uri: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300' }}
+              source={{ uri: 'https://i.pinimg.com/736x/6b/49/8c/6b498c90c678a15eb1675ac8476407b9.jpg' }}
               style={styles.avatar}
             />
             <View style={styles.profileTextContainer}>
