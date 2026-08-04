@@ -34,6 +34,13 @@ export default function TabLayout() {
             tabBarIcon: ({ color }: { color?: string }) => <IconSymbol size={28} name="paperplane.fill" color={color ?? tintColor} />,
           }}
         />
+        <Tabs.Screen
+          name="fishPlant"
+          options={{
+            title: 'Fish & Plant',
+            tabBarIcon: ({ color }: { color?: string }) => <IconSymbol size={28} name="fish.fill" color={color ?? tintColor} />,
+          }}
+        />
       </Tabs>
     </GestureDrawer>
   );

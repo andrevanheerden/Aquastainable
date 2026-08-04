@@ -99,13 +99,11 @@ export function GestureDrawer({ children }: GestureDrawerProps) {
               onPress={() => navigateTo('/(tabs)/home')}
             />
             <DrawerItem
-              icon="sparkles"
-              label="AI Consultation"
-              isActive={currentPath.includes('consult')}
-              onPress={() => navigateTo('/(tabs)/explore')}
+              icon="fish.fill"
+              label="Fish & Plant"
+              isActive={currentPath.includes('fishPlant')}
+              onPress={() => navigateTo('/(tabs)/fishPlant')}
             />
-            <DrawerItem icon="drop.fill" label="Water Diagnostics" isActive={false} onPress={() => {}} />
-            <DrawerItem icon="fish.fill" label="Livestock Profiles" isActive={false} onPress={() => {}} />
           </View>
 
           <View style={styles.footerSection}>
