@@ -1,6 +1,5 @@
 import React, { ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
-import Svg, { Defs, LinearGradient, Stop, Path } from 'react-native-svg';
 import { Colors } from '../../app/colors';
 import { ThemeType, ThemeColors } from '../../app/theme';
 
@@ -11,24 +10,24 @@ interface WaveBackgroundProps {
 
 const THEME_COLORS: Record<ThemeType, ThemeColors> = {
   default: {
-    bg: '#062B34',
-    top: Colors.waterFill,
-    bottom: Colors.waterFillLight,
+    bg: Colors.background,
+    top: Colors.waterFillLight,
+    bottom: Colors.info,
   },
   midnight: {
-    bg: '#042C39',
-    top: Colors.waterFill,
-    bottom: Colors.waterFillLight,
+    bg: Colors.background,
+    top: Colors.waterFillLight,
+    bottom: Colors.info,
   },
   emerald: {
-    bg: '#073B45',
-    top: Colors.waterFill,
-    bottom: Colors.waterFillLight,
+    bg: Colors.background,
+    top: Colors.waterFillLight,
+    bottom: Colors.info,
   },
   crimson: {
-    bg: '#052D3A',
-    top: Colors.waterFill,
-    bottom: Colors.waterFillLight,
+    bg: Colors.background,
+    top: Colors.waterFillLight,
+    bottom: Colors.info,
   },
 };
 
@@ -37,24 +36,9 @@ export default function WaveBackground({ theme = 'default', children }: WaveBack
 
   return (
     <View style={[styles.container, { backgroundColor: colors.bg }]}>
-      <Svg height="100%" width="100%" style={StyleSheet.absoluteFillObject}>
-        <Defs>
-          <LinearGradient id="waveGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-            <Stop offset="0%" stopColor={colors.top} stopOpacity="0.45" />
-            <Stop offset="100%" stopColor={colors.bottom} stopOpacity="0.2" />
-          </LinearGradient>
-        </Defs>
-
-        <Path
-          d="M-50,200 C100,100 250,300 450,180 C600,80 700,250 800,200 L800,900 L-50,900 Z"
-          fill="url(#waveGrad)"
-        />
-        <Path
-          d="M-50,450 C120,380 220,520 400,420 C580,320 680,480 800,400 L800,900 L-50,900 Z"
-          fill="url(#waveGrad)"
-          opacity="0.6"
-        />
-      </Svg>
+      <View style={[styles.auroraLayer, styles.auroraOne, { backgroundColor: colors.top }]} />
+      <View style={[styles.auroraLayer, styles.auroraTwo, { backgroundColor: colors.bottom }]} />
+      <View style={[styles.overlay, { backgroundColor: 'rgba(0, 0, 0, 0.12)' }]} />
       {children}
     </View>
   );
@@ -63,5 +47,30 @@ export default function WaveBackground({ theme = 'default', children }: WaveBack
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  auroraLayer: {
+    position: 'absolute',
+    borderRadius: 999,
+    opacity: 0.35,
+    filter: 'blur(60px)',
+  },
+  auroraOne: {
+    top: -70,
+    left: -80,
+    width: 220,
+    height: 220,
+    transform: [{ rotate: '-15deg' }],
+  },
+  auroraTwo: {
+    bottom: -120,
+    right: -90,
+    width: 260,
+    height: 260,
+    transform: [{ rotate: '25deg' }],
+  },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
   },
 });
