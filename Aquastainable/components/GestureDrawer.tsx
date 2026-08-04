@@ -25,9 +25,17 @@ export function GestureDrawer({ children }: GestureDrawerProps) {
   const currentPath = usePathname();
   const [drawerPosition, setDrawerPosition] = useState(-DRAWER_WIDTH);
   const dragStartPosition = useRef(-DRAWER_WIDTH);
+  const drawerPositionRef = useRef(-DRAWER_WIDTH);
+  const isDraggingRef = useRef(false);
 
-  const openDrawer = () => setDrawerPosition(0);
-  const closeDrawer = () => setDrawerPosition(-DRAWER_WIDTH);
+  const openDrawer = () => {
+    drawerPositionRef.current = 0;
+    setDrawerPosition(0);
+  };
+  const closeDrawer = () => {
+    drawerPositionRef.current = -DRAWER_WIDTH;
+    setDrawerPosition(-DRAWER_WIDTH);
+  };
 
   const panResponder = useRef(
     PanResponder.create({
@@ -35,15 +43,32 @@ export function GestureDrawer({ children }: GestureDrawerProps) {
       onMoveShouldSetPanResponder: (_, gestureState) =>
         Math.abs(gestureState.dx) > 8 || Math.abs(gestureState.dy) > 8,
       onPanResponderGrant: () => {
-        dragStartPosition.current = drawerPosition;
+        isDraggingRef.current = true;
+        dragStartPosition.current = drawerPositionRef.current;
       },
       onPanResponderMove: (_, gestureState) => {
+        if (!isDraggingRef.current) {
+          return;
+        }
+
         const nextPosition = Math.min(0, Math.max(-DRAWER_WIDTH, dragStartPosition.current + gestureState.dx));
+        drawerPositionRef.current = nextPosition;
         setDrawerPosition(nextPosition);
       },
       onPanResponderRelease: (_, gestureState) => {
-        const shouldOpen = drawerPosition > -DRAWER_WIDTH / 2 || gestureState.vx > 0.35;
-        if (shouldOpen) {
+        isDraggingRef.current = false;
+
+        const dragDistance = gestureState.dx;
+        const shouldOpen = dragDistance > DRAWER_WIDTH * 0.3 || gestureState.vx > 0.25;
+        if (shouldOpen || drawerPositionRef.current > -DRAWER_WIDTH * 0.5) {
+          openDrawer();
+        } else {
+          closeDrawer();
+        }
+      },
+      onPanResponderTerminate: () => {
+        isDraggingRef.current = false;
+        if (drawerPositionRef.current > -DRAWER_WIDTH * 0.5) {
           openDrawer();
         } else {
           closeDrawer();
