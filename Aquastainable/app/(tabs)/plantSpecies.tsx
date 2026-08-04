@@ -10,14 +10,19 @@ const SPECIES_IMAGES: Record<string, string | number> = {
   f7: require('../../assets/fishTank/duckweed.jpeg'),
 };
 
+type SpeciesCardItem = Species & { tankName: string };
+
 export default function PlantSpeciesScreen() {
   const router = useRouter();
   const tankIds = ['1', '2', '3'];
-  const species = tankIds
-    .flatMap((tankId) => getTankDetail(tankId)?.species ?? [])
-    .filter((item) => item.type === 'plant');
+  const species: SpeciesCardItem[] = tankIds.flatMap((tankId) => {
+    const tankDetail = getTankDetail(tankId);
+    return (tankDetail?.species ?? [])
+      .filter((item) => item.type === 'plant')
+      .map((item) => ({ ...item, tankName: tankDetail?.tankName ?? 'Unknown Tank' }));
+  });
 
-  const handlePress = (item: Species) => {
+  const handlePress = (item: SpeciesCardItem) => {
     router.push({ pathname: '/(tabs)/plantDetails', params: { speciesId: item.id } });
   };
 
@@ -42,6 +47,13 @@ export default function PlantSpeciesScreen() {
               <View style={styles.cardBody}>
                 <Text style={styles.name}>{item.name}</Text>
                 <Text style={styles.scientific}>{item.speciesName}</Text>
+                <View style={styles.divider} />
+                <View style={styles.infoRow}>
+                  <Text style={styles.label}>Tank</Text>
+                  <Text style={[styles.value, styles.compactValue]} numberOfLines={1}>
+                    {item.tankName.length > 10 ? `${item.tankName.slice(0, 10)}...` : item.tankName}
+                  </Text>
+                </View>
               </View>
             </TouchableOpacity>
           );
@@ -107,5 +119,31 @@ const styles = StyleSheet.create({
     color: '#8F97A6',
     fontSize: 13,
     marginTop: 4,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    marginTop: 10,
+    marginBottom: 10,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  label: {
+    color: '#8F97A6',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  value: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  compactValue: {
+    maxWidth: 90,
+    textAlign: 'right',
   },
 });
