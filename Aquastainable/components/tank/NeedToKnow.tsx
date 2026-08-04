@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Image } from 'react-native';
 import ConditionTile from './ConditionTile';
 
 type Conditions = {
@@ -14,33 +14,65 @@ type Props = {
 };
 
 export default function NeedToKnow({ conditions }: Props) {
+  const { preferredTempC, ph, lastTestedDaysAgo, ammoniaPpm, nitritePpm } = conditions as any;
+
+  const tankSize = 'Min. 10L';
+  const waterChangeInterval = 'Weekly';
+  const bioload = (parseFloat(ammoniaPpm) > 0 || parseFloat(nitritePpm) > 0) ? 'Medium' : 'Low';
+  const nextWaterChange = lastTestedDaysAgo > 6 ? 'Due' : `${7 - lastTestedDaysAgo}d`;
+
   return (
     <>
-      <Text style={localStyles.sectionTitle}>Need to know</Text>
+      <View style={localStyles.titleRow}>
+        <Text style={localStyles.sectionTitle}>Aquarium Care</Text>
+      </View>
       <View style={localStyles.conditionsGrid}>
         <ConditionTile
-          label="Water temp"
-          value={`${conditions.preferredTempC}°C - Medium`}
+          label="Tank Temp"
+          value={preferredTempC}
+          valueOnTop
+          tileHeight={130}
           imageSource={require('../../assets/icons/temp.png')}
-          imageSize={150}
         />
-        <ConditionTile
-          label="Living Area"
-          value={conditions.waterQuality}
-          imageSource={require('../../assets/icons/plant.png')}
-          imageSize={150}
-        />
+
         <ConditionTile
           label="pH Level"
-          value={conditions.ph}
+          value={ph}
+          valueOnTop
+          tileHeight={130}
           imageSource={require('../../assets/icons/PH.png')}
-          imageSize={150}
         />
+
         <ConditionTile
-          label="Last tested"
-          value={conditions.lastTestedDaysAgo === 0 ? 'Today' : `${conditions.lastTestedDaysAgo}d ago`}
+          label="Tank Size"
+          value={tankSize}
+          valueOnTop
+          tileHeight={130}
+          imageSource={require('../../assets/icons/tank.png')}
+        />
+
+        <ConditionTile
+          label="Water Change"
+          value={waterChangeInterval}
+          valueOnTop
+          tileHeight={130}
+          imageSource={require('../../assets/icons/water.png')}
+        />
+
+        <ConditionTile
+          label="Bioload"
+          value={bioload}
+          valueOnTop
+          tileHeight={130}
+          imageSource={require('../../assets/icons/bio.png')}
+        />
+
+        <ConditionTile
+          label="Next Change"
+          value={nextWaterChange}
+          valueOnTop
+          tileHeight={130}
           imageSource={require('../../assets/icons/date.png')}
-          imageSize={150}
         />
       </View>
     </>
@@ -54,6 +86,18 @@ const localStyles = StyleSheet.create({
     fontWeight: '700',
     marginTop: 24,
     marginBottom: 12,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 24,
+    marginBottom: 12,
+  },
+  titleIcon: {
+    width: 28,
+    height: 28,
+    marginRight: 10,
+    resizeMode: 'contain',
   },
   conditionsGrid: {
     flexDirection: 'row',
