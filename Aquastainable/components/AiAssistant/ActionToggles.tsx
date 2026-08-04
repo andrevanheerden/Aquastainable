@@ -1,18 +1,13 @@
 import React from 'react';
 import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
-import { Ionicons, Feather } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function ActionToggles() {
   return (
     <View style={styles.container}>
       <TouchableOpacity style={styles.toggleButton}>
-        <Ionicons name="sparkles-outline" size={16} color="rgba(255,255,255,0.7)" />
-        <Text style={styles.toggleText}>Deep Think (R1)</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity style={styles.toggleButton}>
-        <Feather name="globe" size={16} color="rgba(255,255,255,0.7)" />
-        <Text style={styles.toggleText}>Search</Text>
+        <Ionicons name="cube-outline" size={16} color="rgba(255,255,255,0.7)" />
+        <Text style={styles.toggleText}>Selected Tank</Text>
       </TouchableOpacity>
     </View>
   );

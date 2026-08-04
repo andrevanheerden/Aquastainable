@@ -1,7 +1,8 @@
 import React from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, ScrollView } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { ThemeType } from '../../types/theme';
+import { Colors } from '../../app/colors';
+import { ThemeType } from '../../app/theme';
 
 interface PillItem {
   id: string;
@@ -98,8 +99,8 @@ const styles = StyleSheet.create({
     borderRadius: 24,
   },
   activePill: {
-    borderColor: '#A855F7',
-    backgroundColor: 'rgba(168, 85, 247, 0.2)',
+    borderColor: Colors.waterFill,
+    backgroundColor: `${Colors.waterFill}22`,
   },
   iconWrapper: {
     marginRight: 8,

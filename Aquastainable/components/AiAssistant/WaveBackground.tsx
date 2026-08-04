@@ -1,7 +1,8 @@
 import React, { ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Svg, { Defs, LinearGradient, Stop, Path } from 'react-native-svg';
-import { ThemeType, ThemeColors } from '../../types/theme';
+import { Colors } from '../../app/colors';
+import { ThemeType, ThemeColors } from '../../app/theme';
 
 interface WaveBackgroundProps {
   theme?: ThemeType;
@@ -10,24 +11,24 @@ interface WaveBackgroundProps {
 
 const THEME_COLORS: Record<ThemeType, ThemeColors> = {
   default: {
-    bg: '#0F0920',
-    top: '#6B21A8',
-    bottom: '#1E0A3C',
+    bg: '#062B34',
+    top: Colors.waterFill,
+    bottom: Colors.waterFillLight,
   },
   midnight: {
-    bg: '#030712',
-    top: '#1E3A8A',
-    bottom: '#091E42',
+    bg: '#042C39',
+    top: Colors.waterFill,
+    bottom: Colors.waterFillLight,
   },
   emerald: {
-    bg: '#022C22',
-    top: '#059669',
-    bottom: '#064E3B',
+    bg: '#073B45',
+    top: Colors.waterFill,
+    bottom: Colors.waterFillLight,
   },
   crimson: {
-    bg: '#1A0507',
-    top: '#DC2626',
-    bottom: '#7F1D1D',
+    bg: '#052D3A',
+    top: Colors.waterFill,
+    bottom: Colors.waterFillLight,
   },
 };
 

@@ -1,20 +1,48 @@
-import React from 'react';
-import { StyleSheet, View, Text, Image, ImageSourcePropType } from 'react-native';
+import React, { useEffect } from 'react';
+import { StyleSheet, View, Text, Image, ImageSourcePropType, Animated, Easing } from 'react-native';
 
 interface HeroSectionProps {
   logoSource?: ImageSourcePropType | null;
 }
 
 export default function HeroSection({ logoSource }: HeroSectionProps) {
+  const pulse1 = React.useRef(new Animated.Value(1)).current;
+  const pulse2 = React.useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    const createPulse = (anim: Animated.Value, delay: number) => {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(anim, {
+            toValue: 1.08,
+            duration: 1800,
+            delay,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+          Animated.timing(anim, {
+            toValue: 0.96,
+            duration: 1800,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    };
+
+    createPulse(pulse1, 0);
+    createPulse(pulse2, 900);
+  }, [pulse1, pulse2]);
+
+  const imageSource = logoSource ?? require('../../assets/logo/Aque-logo.png');
+
   return (
     <View style={styles.container}>
-      <View style={styles.outerGlow}>
-        <View style={styles.innerCircle}>
-          {logoSource ? (
-            <Image source={logoSource} style={styles.logo} resizeMode="contain" />
-          ) : (
-            <View style={styles.logoPlaceholder} />
-          )}
+      <View style={styles.orbit}>
+        <Animated.View style={[styles.outerRing, { transform: [{ scale: pulse1 }] }]} />
+        <Animated.View style={[styles.middleRing, { transform: [{ scale: pulse2 }] }]} />
+        <View style={styles.centerCircle}>
+          <Image source={imageSource} style={styles.logo} resizeMode="contain" />
         </View>
       </View>
 
@@ -29,34 +57,42 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginVertical: 25,
   },
-  outerGlow: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+  orbit: {
+    width: 170,
+    height: 170,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 20,
   },
-  innerCircle: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+  outerRing: {
+    position: 'absolute',
+    width: 160,
+    height: 160,
+    borderRadius: 80,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+  },
+  middleRing: {
+    position: 'absolute',
+    width: 124,
+    height: 124,
+    borderRadius: 62,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+  },
+  centerCircle: {
+    width: 84,
+    height: 84,
+    borderRadius: 42,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.16)',
   },
   logo: {
-    width: 40,
-    height: 40,
-  },
-  logoPlaceholder: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: '#A855F7',
+    width: 54,
+    height: 54,
   },
   title: {
     fontSize: 26,
