@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Alert, Modal, StyleSheet, View, Text, TextInput, TouchableOpacity, Image } from 'react-native';
+import { Alert, StyleSheet, View, Text, TextInput, TouchableOpacity, Image } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { Camera } from 'expo-camera';
@@ -10,7 +10,7 @@ export default function InputBar() {
   const [selectedMedia, setSelectedMedia] = useState<string | null>(null);
   const [mediaType, setMediaType] = useState<'image' | 'video' | null>(null);
 
-  const openMediaOptions = () => setShowOptions(true);
+  const openMediaOptions = () => setShowOptions((prev) => !prev);
 
   const handlePickFromGallery = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -90,38 +90,36 @@ export default function InputBar() {
         </View>
       ) : null}
 
-      <View style={styles.inputWrapper}>
-        <TouchableOpacity style={styles.addIcon} onPress={openMediaOptions}>
-          <Feather name="plus" size={20} color="#FFFFFF" />
-        </TouchableOpacity>
-
-        <TextInput
-          style={styles.input}
-          placeholder="message Aquestanable"
-          placeholderTextColor="rgba(255, 255, 255, 0.4)"
-          value={text}
-          onChangeText={setText}
-        />
-
-        <TouchableOpacity style={styles.micButton}>
-          <Feather name="mic" size={20} color="#FFFFFF" />
-        </TouchableOpacity>
-      </View>
-
-      <Modal transparent visible={showOptions} animationType="fade" onRequestClose={() => setShowOptions(false)}>
-        <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={() => setShowOptions(false)}>
+      <View style={styles.inputArea}>
+        {showOptions ? (
           <View style={styles.optionStack}>
             <TouchableOpacity style={styles.optionTile} onPress={handleTakePhotoOrVideo}>
-              <Feather name="camera" size={24} color="#FFFFFF" />
-              <Text style={styles.optionText}>Camera</Text>
+              <Feather name="camera" size={18} color="#FFFFFF" />
             </TouchableOpacity>
             <TouchableOpacity style={styles.optionTile} onPress={handlePickFromGallery}>
-              <Feather name="image" size={24} color="#FFFFFF" />
-              <Text style={styles.optionText}>Gallery</Text>
+              <Feather name="image" size={18} color="#FFFFFF" />
             </TouchableOpacity>
           </View>
-        </TouchableOpacity>
-      </Modal>
+        ) : null}
+
+        <View style={styles.inputWrapper}>
+          <TouchableOpacity style={styles.addIcon} onPress={openMediaOptions}>
+            <Feather name="plus" size={20} color="#FFFFFF" />
+          </TouchableOpacity>
+
+          <TextInput
+            style={styles.input}
+            placeholder="message Aquestanable"
+            placeholderTextColor="rgba(255, 255, 255, 0.4)"
+            value={text}
+            onChangeText={setText}
+          />
+
+          <TouchableOpacity style={styles.micButton}>
+            <Feather name="mic" size={20} color="#FFFFFF" />
+          </TouchableOpacity>
+        </View>
+      </View>
     </View>
   );
 }
@@ -131,6 +129,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 80,
     paddingTop: 6,
+  },
+  inputArea: {
+    position: 'relative',
   },
   inputWrapper: {
     flexDirection: 'row',
@@ -197,29 +198,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  modalBackdrop: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.45)',
-  },
   optionStack: {
-    width: 170,
-    gap: 12,
+    position: 'absolute',
+    left: 6,
+    bottom: 70,
+    flexDirection: 'column',
+    gap: 10,
+    zIndex: 2,
   },
   optionTile: {
-    backgroundColor: '#2E8CA6',
-    height: 90,
-    borderRadius: 18,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: 'rgba(255, 255, 255, 0.09)',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.16)',
-  },
-  optionText: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '600',
+    borderColor: 'rgba(255,255,255,0.12)',
   },
 });
