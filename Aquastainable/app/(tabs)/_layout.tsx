@@ -35,10 +35,17 @@ export default function TabLayout() {
           }}
         />
         <Tabs.Screen
-          name="species"
+          name="fishSpecies"
           options={{
-            title: 'Species',
+            title: 'Fish Species',
             tabBarIcon: ({ color }: { color?: string }) => <IconSymbol size={28} name="fish.fill" color={color ?? tintColor} />,
+          }}
+        />
+        <Tabs.Screen
+          name="plantSpecies"
+          options={{
+            title: 'Plant Species',
+            tabBarIcon: ({ color }: { color?: string }) => <IconSymbol size={28} name="leaf.fill" color={color ?? tintColor} />,
           }}
         />
       </Tabs>

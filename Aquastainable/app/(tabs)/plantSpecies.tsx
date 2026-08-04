@@ -5,19 +5,17 @@ import { useRouter } from 'expo-router';
 import { getTankDetail, Species } from '@/app/data/tankDetails';
 
 const SPECIES_IMAGES: Record<string, string | number> = {
-  f1: require('../../assets/fishTank/guppy.jpg'),
-  f2: require('../../assets/fishTank/goldFish.jpg'),
   f3: require('../../assets/fishTank/duckweed.jpeg'),
-  f4: require('../../assets/fishTank/guppy.jpg'),
   f5: require('../../assets/fishTank/duckweed.jpeg'),
-  f6: require('../../assets/fishTank/guppy.jpg'),
   f7: require('../../assets/fishTank/duckweed.jpeg'),
 };
 
-export default function SpeciesScreen() {
+export default function PlantSpeciesScreen() {
   const router = useRouter();
   const tankIds = ['1', '2', '3'];
-  const species = tankIds.flatMap((tankId) => getTankDetail(tankId)?.species ?? []);
+  const species = tankIds
+    .flatMap((tankId) => getTankDetail(tankId)?.species ?? [])
+    .filter((item) => item.type === 'plant');
 
   const handlePress = (item: Species) => {
     router.push({ pathname: '/(tabs)/fishPlant', params: { speciesId: item.id } });
@@ -26,8 +24,8 @@ export default function SpeciesScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Species</Text>
-        <Text style={styles.subtitle}>Browse every species in your tanks.</Text>
+        <Text style={styles.title}>Plant Species</Text>
+        <Text style={styles.subtitle}>Browse the plants currently in your tanks.</Text>
       </View>
 
       <FlatList
@@ -37,7 +35,7 @@ export default function SpeciesScreen() {
         columnWrapperStyle={styles.row}
         contentContainerStyle={styles.list}
         renderItem={({ item }) => {
-          const imageSource = SPECIES_IMAGES[item.id] ?? require('../../assets/fishTank/guppy.jpg');
+          const imageSource = SPECIES_IMAGES[item.id] ?? require('../../assets/fishTank/duckweed.jpeg');
           return (
             <TouchableOpacity style={styles.card} onPress={() => handlePress(item)} activeOpacity={0.9}>
               <Image source={imageSource} style={styles.image} resizeMode="cover" />
