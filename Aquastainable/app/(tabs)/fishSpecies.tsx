@@ -3,6 +3,7 @@ import { FlatList, Image, SafeAreaView, StyleSheet, Text, TouchableOpacity, View
 import { useRouter } from 'expo-router';
 
 import { getTankDetail, Species } from '@/app/data/tankDetails';
+import AddNewFishCard from '@/components/fish&Plants/AddNewFishCard';
 
 const SPECIES_IMAGES: Record<string, string | number> = {
   f1: require('../../assets/fishTank/guppy.jpg'),
@@ -43,12 +44,16 @@ export default function FishSpeciesScreen() {
       </View>
 
       <FlatList
-        data={species}
+        data={[...species, { id: 'add-fish-card', type: 'fish', name: '', speciesName: '', origin: '', lifespan: '', preferredTempC: '', feeding: '', schoolSize: '', summary: '', tankName: '' } as SpeciesCardItem]}
         keyExtractor={(item) => item.id}
         numColumns={2}
         columnWrapperStyle={styles.row}
         contentContainerStyle={styles.list}
         renderItem={({ item }) => {
+          if (item.id === 'add-fish-card') {
+            return <AddNewFishCard />;
+          }
+
           const imageSource = SPECIES_IMAGES[item.id] ?? require('../../assets/fishTank/guppy.jpg');
           return (
             <TouchableOpacity style={styles.card} onPress={() => handlePress(item)} activeOpacity={0.9}>
