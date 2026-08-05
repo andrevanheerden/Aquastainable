@@ -1,9 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { FlatList, Image, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useRouter } from 'expo-router';
 
 import { getTankDetail, Species } from '@/app/data/tankDetails';
 import AddNewFishCard from '@/components/fish&Plants/AddNewFishCard';
+import AddNewPlantCard from '@/components/fish&Plants/AddNewPlantCard';
+import AddPlantModal from '@/components/fish&Plants/AddPlantModal';
 
 const SPECIES_IMAGES: Record<string, string | number> = {
   f3: require('../../assets/fishTank/duckweed.jpeg'),
@@ -15,6 +17,7 @@ type SpeciesCardItem = Species & { tankName: string };
 
 export default function PlantSpeciesScreen() {
   const router = useRouter();
+  const [addPlantVisible, setAddPlantVisible] = useState(false);
   const tankIds = ['1', '2', '3'];
   const species: SpeciesCardItem[] = tankIds.flatMap((tankId) => {
     const tankDetail = getTankDetail(tankId);
@@ -42,7 +45,7 @@ export default function PlantSpeciesScreen() {
         contentContainerStyle={styles.list}
         renderItem={({ item }) => {
           if (item.id === 'add-plant-card') {
-            return <AddNewFishCard />;
+            return <AddNewPlantCard onPress={() => setAddPlantVisible(true)} />;
           }
 
           const imageSource = SPECIES_IMAGES[item.id] ?? require('../../assets/fishTank/duckweed.jpeg');
@@ -64,6 +67,7 @@ export default function PlantSpeciesScreen() {
           );
         }}
       />
+      <AddPlantModal visible={addPlantVisible} onClose={() => setAddPlantVisible(false)} />
     </SafeAreaView>
   );
 }

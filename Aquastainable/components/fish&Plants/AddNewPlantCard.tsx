@@ -5,11 +5,11 @@ type Props = {
   onPress?: () => void;
 };
 
-export default function AddNewFishCard({ onPress }: Props) {
+export default function AddNewPlantCard({ onPress }: Props) {
   return (
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.85}>
       <Text style={styles.plus}>+</Text>
-      <Text style={styles.label}>Add new fish</Text>
+      <Text style={styles.label}>Add new plant</Text>
     </TouchableOpacity>
   );
 }

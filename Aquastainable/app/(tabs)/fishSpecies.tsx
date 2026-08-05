@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { FlatList, Image, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useRouter } from 'expo-router';
 
 import { getTankDetail, Species } from '@/app/data/tankDetails';
 import AddNewFishCard from '@/components/fish&Plants/AddNewFishCard';
+import AddFishModal from '@/components/fish&Plants/AddFishModal';
 
 const SPECIES_IMAGES: Record<string, string | number> = {
   f1: require('../../assets/fishTank/guppy.jpg'),
@@ -16,6 +17,7 @@ type SpeciesCardItem = Species & { tankName: string };
 
 export default function FishSpeciesScreen() {
   const router = useRouter();
+  const [addFishVisible, setAddFishVisible] = useState(false);
   const tankIds = ['1', '2', '3'];
   const species: SpeciesCardItem[] = tankIds.flatMap((tankId) => {
     const tankDetail = getTankDetail(tankId);
@@ -51,7 +53,7 @@ export default function FishSpeciesScreen() {
         contentContainerStyle={styles.list}
         renderItem={({ item }) => {
           if (item.id === 'add-fish-card') {
-            return <AddNewFishCard />;
+            return <AddNewFishCard onPress={() => setAddFishVisible(true)} />;
           }
 
           const imageSource = SPECIES_IMAGES[item.id] ?? require('../../assets/fishTank/guppy.jpg');
@@ -79,6 +81,7 @@ export default function FishSpeciesScreen() {
           );
         }}
       />
+      <AddFishModal visible={addFishVisible} onClose={() => setAddFishVisible(false)} />
     </SafeAreaView>
   );
 }
