@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { StyleSheet, SafeAreaView, View } from 'react-native';
+import { StyleSheet, SafeAreaView, View, TouchableOpacity } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { ThemeType } from '../theme';
 
@@ -38,10 +38,15 @@ export default function AskAIScreen() {
           />
         </View>
 
-        {showMediaOptions ? <View style={styles.overlay} pointerEvents="none" /> : null}
+        {showMediaOptions ? (
+          <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={() => setShowMediaOptions(false)} />
+        ) : null}
 
-        <View style={[styles.bottomSection, showMediaOptions ? styles.bottomSectionOnTop : undefined]}>
+        <View style={styles.bottomSection}>
           <ActionToggles />
+        </View>
+
+        <View style={styles.inputLayer} pointerEvents="box-none">
           <InputBar
             initialText={prefillText}
             initialMediaUri={prefillMediaUri}
