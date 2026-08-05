@@ -10,6 +10,7 @@ import {
   View,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import Colors from '../../app/colors';
 import SwipeCheckButton from './SwipeCheckButton';
 
 export type FishSicknessPrefill = {
@@ -177,9 +178,9 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     padding: 20,
     borderRadius: 24,
-    backgroundColor: '#121212',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: '#14151B',
+    borderWidth: 0.5,
+    borderColor: '#2c2e3a',
   },
   sectionTitle: {
     color: '#FFFFFF',
@@ -216,7 +217,7 @@ const styles = StyleSheet.create({
     left: 0,
     top: 0,
     bottom: 0,
-    backgroundColor: '#5B8CFF',
+    backgroundColor: Colors.waterFill,
     borderRadius: 24,
   },
   modalBackdrop: {
