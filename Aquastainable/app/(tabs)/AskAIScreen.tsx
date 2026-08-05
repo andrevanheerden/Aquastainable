@@ -20,6 +20,7 @@ export default function AskAIScreen() {
 
   const initialTheme = params.theme ?? 'default';
   const [currentTheme, setCurrentTheme] = useState<ThemeType>(initialTheme);
+  const [showMediaOptions, setShowMediaOptions] = useState(false);
   const prefillText = params.prefillText ?? '';
   const prefillMediaUri = params.prefillMediaUri ?? null;
   const prefillMediaType = params.prefillMediaType ?? null;
@@ -37,12 +38,16 @@ export default function AskAIScreen() {
           />
         </View>
 
-        <View style={styles.bottomSection}>
+        {showMediaOptions ? <View style={styles.overlay} pointerEvents="none" /> : null}
+
+        <View style={[styles.bottomSection, showMediaOptions ? styles.bottomSectionOnTop : undefined]}>
           <ActionToggles />
           <InputBar
             initialText={prefillText}
             initialMediaUri={prefillMediaUri}
             initialMediaType={prefillMediaType}
+            showOptions={showMediaOptions}
+            onShowOptionsChange={setShowMediaOptions}
           />
         </View>
       </SafeAreaView>
@@ -58,7 +63,15 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
   },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+  },
   bottomSection: {
     width: '100%',
+  },
+  bottomSectionOnTop: {
+    zIndex: 2,
+    position: 'relative',
   },
 });

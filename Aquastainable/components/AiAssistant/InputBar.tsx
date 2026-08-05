@@ -8,15 +8,22 @@ type Props = {
   initialText?: string;
   initialMediaUri?: string | null;
   initialMediaType?: 'image' | 'video' | null;
+  showOptions?: boolean;
+  onShowOptionsChange?: (show: boolean) => void;
 };
 
-export default function InputBar({ initialText = '', initialMediaUri = null, initialMediaType = null }: Props) {
+export default function InputBar({
+  initialText = '',
+  initialMediaUri = null,
+  initialMediaType = null,
+  showOptions = false,
+  onShowOptionsChange = () => {},
+}: Props) {
   const [text, setText] = useState<string>(initialText);
-  const [showOptions, setShowOptions] = useState(false);
   const [selectedMedia, setSelectedMedia] = useState<string | null>(initialMediaUri);
   const [mediaType, setMediaType] = useState<'image' | 'video' | null>(initialMediaType);
 
-  const openMediaOptions = () => setShowOptions((prev) => !prev);
+  const openMediaOptions = () => onShowOptionsChange(!showOptions);
 
   const handlePickFromGallery = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -43,7 +50,7 @@ export default function InputBar({ initialText = '', initialMediaUri = null, ini
       setSelectedMedia(asset.uri ?? null);
     }
 
-    setShowOptions(false);
+    onShowOptionsChange(false);
   };
 
   const handleTakePhotoOrVideo = async () => {
@@ -72,7 +79,7 @@ export default function InputBar({ initialText = '', initialMediaUri = null, ini
       setSelectedMedia(asset.uri ?? null);
     }
 
-    setShowOptions(false);
+    onShowOptionsChange(false);
   };
 
   return (
