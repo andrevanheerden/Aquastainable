@@ -1,54 +1,18 @@
-// SplashScreen.tsx
-// Total redesign, matching the reference gif closely:
-//
-//   1. A drop stretches down from an invisible source at the top, thin at
-//      first, elongating like it's being pulled down by gravity.
-//   2. It pinches off — the bulb falls the rest of the way while the
-//      stretched tail snaps back up and fades.
-//   3. It lands, spreading into a puddle with an expanding ripple ring and
-//      a couple of little bounce droplets.
-//   4. Your logo fades in above the puddle it just made.
-//   5. It slides left and shrinks, then crossfades into the full
-//      "AQUASTAINABLE" wordmark, landing exactly where the icon sits inside
-//      that image (measured from the actual asset — see the constants below).
-//   6. onFinish fires — hand off to your loading screen from there.
-//
-// Needs: react-native-svg
-//   npm install react-native-svg
-//   (bare RN: cd ios && pod install)
-//
-// Also needs assets/img/logo-text.png — the full horizontal lockup
-// (icon + wordmark in one image), alongside your existing Aque-logo.png.
-//
-// Usage in App.tsx:
-//   const [stage, setStage] = useState<'splash' | 'loading' | 'app'>('splash');
-//   if (stage === 'splash') return <SplashScreen onFinish={() => setStage('loading')} />;
-//   if (stage === 'loading') return <LoadingScreen progress={...} onDone={() => setStage('app')} />;
-//   return <MainApp />;
+
 
 import React, { useEffect, useRef } from 'react';
 import { Animated, Easing, Image, StyleSheet, View } from 'react-native';
 import Svg, { Path, Ellipse, Circle } from 'react-native-svg';
 import Colors from './colors';
 
-// Measured directly from the actual asset files:
-//   Aque-logo.png is 460x680. logo-text.png is 4996x680, and its icon
-// portion is pixel-identical to Aque-logo.png, sitting at x=[0, 460] —
-// i.e. the icon's horizontal center sits at 230/4996 of the full width,
-// and (since both images share the same 680px height) its vertical center
-// already lines up with the lockup's own vertical center, so no Y offset
-// is needed. If you ever re-export either logo file at different
-// proportions, recompute these two constants the same way.
+
 const LOCKUP_ASPECT = 4996 / 680;
 const ICON_CENTER_FRACTION_X = 230 / 4996;
 
 const LOCKUP_DISPLAY_WIDTH = 240; // final on-screen width of the full wordmark
 const LOCKUP_DISPLAY_HEIGHT = LOCKUP_DISPLAY_WIDTH / LOCKUP_ASPECT;
 
-// the standalone icon renders at an effective height of 100 (contain-fit
-// inside its 100x100 box, and it's a portrait image so height is the
-// binding dimension) — shrink it to match the icon's height inside the
-// lockup, so the sizes match up when they crossfade.
+
 const ICON_FINAL_SCALE = LOCKUP_DISPLAY_HEIGHT / 100;
 const ICON_SLIDE_X = (ICON_CENTER_FRACTION_X - 0.5) * LOCKUP_DISPLAY_WIDTH;
 
