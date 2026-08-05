@@ -3,27 +3,30 @@ import { Animated, Easing, PanResponder, StyleSheet, Text, View } from 'react-na
 
 type Props = {
   onSwipe: () => void;
+  label?: string;
+  disabled?: boolean;
 };
 
-export default function SwipeCheckButton({ onSwipe }: Props) {
+export default function SwipeCheckButton({ onSwipe, label = 'Swipe to check compatibility', disabled = false }: Props) {
   const pan = useRef(new Animated.Value(0)).current;
   const [containerWidth, setContainerWidth] = useState(0);
-
-  const maxTranslate = Math.max(0, containerWidth - 60 - 16);
+  const containerWidthRef = useRef(0);
 
   const panResponder = useRef(
     PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: (_, gestureState) => Math.abs(gestureState.dx) > Math.abs(gestureState.dy),
+      onStartShouldSetPanResponder: () => !disabled,
+      onMoveShouldSetPanResponder: (_, gestureState) => !disabled && Math.abs(gestureState.dx) > Math.abs(gestureState.dy),
       onPanResponderMove: (_, gestureState) => {
-        const nextValue = Math.max(0, Math.min(gestureState.dx, maxTranslate));
+        const activeMaxTranslate = Math.max(0, containerWidthRef.current - 60 - 16);
+        const nextValue = Math.max(0, Math.min(gestureState.dx, activeMaxTranslate));
         pan.setValue(nextValue);
       },
       onPanResponderRelease: (_, gestureState) => {
-        if (gestureState.dx >= maxTranslate * 0.75) {
+        const activeMaxTranslate = Math.max(0, containerWidthRef.current - 60 - 16);
+        if (gestureState.dx >= activeMaxTranslate * 0.75) {
           Animated.timing(pan, {
-            toValue: maxTranslate,
-            duration: 140,
+            toValue: activeMaxTranslate,
+            duration: 120,
             easing: Easing.out(Easing.quad),
             useNativeDriver: true,
           }).start(() => {
@@ -45,6 +48,7 @@ export default function SwipeCheckButton({ onSwipe }: Props) {
     })
   ).current;
 
+  const maxTranslate = Math.max(0, containerWidthRef.current - 60 - 16);
   const textOpacity = pan.interpolate({
     inputRange: [0, Math.max(1, maxTranslate * 0.5)],
     outputRange: [1, 0],
@@ -52,11 +56,17 @@ export default function SwipeCheckButton({ onSwipe }: Props) {
   });
 
   return (
-    <View style={styles.track} onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}>
-      <Animated.Text style={[styles.text, { opacity: textOpacity }]}>Swipe to check compatibility</Animated.Text>
+    <View
+      style={styles.track}
+      onLayout={(e) => {
+        containerWidthRef.current = e.nativeEvent.layout.width;
+        setContainerWidth(e.nativeEvent.layout.width);
+      }}
+    >
+      <Animated.Text style={[styles.text, { opacity: textOpacity, color: disabled ? '#6E7684' : '#B3B9C9' }]}>{label}</Animated.Text>
       <Animated.View
         {...panResponder.panHandlers}
-        style={[styles.thumb, { transform: [{ translateX: pan }] }]}
+        style={[styles.thumb, { transform: [{ translateX: pan }], backgroundColor: disabled ? '#3A4258' : '#5B8CFF' }]}
       >
         <Text style={styles.arrow}>›</Text>
       </Animated.View>

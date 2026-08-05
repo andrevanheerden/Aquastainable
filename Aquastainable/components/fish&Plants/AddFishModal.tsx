@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Alert, Image, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import SwipeCheckButton from './SwipeCheckButton';
+import CompatibilityResultModal from './CompatibilityResultModal';
 
 type Props = {
   visible: boolean;
@@ -27,7 +28,7 @@ export default function AddFishModal({ visible, onClose }: Props) {
   const [selectedTank, setSelectedTank] = useState<string | null>(null);
   const [schoolSize, setSchoolSize] = useState('');
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
-  const [analysisVisible, setAnalysisVisible] = useState(false);
+  const [compatibilityVisible, setCompatibilityVisible] = useState(false);
 
   const handlePickImage = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -56,7 +57,7 @@ export default function AddFishModal({ visible, onClose }: Props) {
       success: false,
       unlock: false,
     });
-    setAnalysisVisible(true);
+    setCompatibilityVisible(true);
   };
 
   const handleAdd = () => {
@@ -70,7 +71,7 @@ export default function AddFishModal({ visible, onClose }: Props) {
     setSelectedTank(null);
     setSchoolSize('');
     setAnalysis(null);
-    setAnalysisVisible(false);
+    setCompatibilityVisible(false);
     onClose();
   };
 
@@ -80,8 +81,15 @@ export default function AddFishModal({ visible, onClose }: Props) {
         <TouchableOpacity style={styles.backdropTouchable} activeOpacity={1} onPress={onClose} />
         <View style={styles.modalCard}>
           <ScrollView contentContainerStyle={styles.content}>
-            <Text style={styles.title}>Add new fish</Text>
-            <Text style={styles.subtitle}>Choose an image, search a species, and assign a tank.</Text>
+<View style={styles.headerRow}>
+            <View>
+              <Text style={styles.title}>Add new fish</Text>
+              <Text style={styles.subtitle}>Choose an image, search a species, and assign a tank.</Text>
+            </View>
+            <TouchableOpacity style={styles.closeIconButton} onPress={onClose} activeOpacity={0.8}>
+              <Text style={styles.closeIcon}>✕</Text>
+            </TouchableOpacity>
+          </View>
 
             <TouchableOpacity style={styles.imagePicker} onPress={handlePickImage} activeOpacity={0.8}>
               {imageUri ? (
@@ -132,24 +140,16 @@ export default function AddFishModal({ visible, onClose }: Props) {
 
             <View style={styles.divider} />
             <Text style={styles.sectionLabel}>Compatibility</Text>
-            {!analysisVisible ? (
-              <SwipeCheckButton onSwipe={handleSwipeComplete} />
-            ) : (
-              <View style={styles.analysisBox}>
-                <Text style={[styles.analysisTitle, !analysis?.success && styles.analysisTitleWarning]}>{analysis?.title}</Text>
-                <Text style={styles.analysisText}>{analysis?.details}</Text>
-                <TouchableOpacity
-                  style={[styles.actionButton, !analysis?.unlock && styles.actionButtonDisabled]}
-                  onPress={handleAdd}
-                  activeOpacity={analysis?.unlock ? 0.8 : 1}
-                  disabled={!analysis?.unlock}
-                >
-                  <Text style={styles.actionText}>{analysis?.unlock ? 'Add fish' : 'Cannot add fish'}</Text>
-                </TouchableOpacity>
-              </View>
-            )}
+            <SwipeCheckButton label="Swipe to check" onSwipe={handleSwipeComplete} />
           </ScrollView>
         </View>
+        <CompatibilityResultModal
+          visible={compatibilityVisible}
+          analysis={analysis}
+          typeLabel="fish"
+          onClose={() => setCompatibilityVisible(false)}
+          onSwipeToAdd={handleAdd}
+        />
       </View>
     </Modal>
   );
@@ -176,6 +176,25 @@ const styles = StyleSheet.create({
   content: {
     padding: 22,
   },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 16,
+  },
+  closeIconButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#1B1D26',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  closeIcon: {
+    color: '#B3B9C9',
+    fontSize: 20,
+    fontWeight: '700',
+  },
   title: {
     color: '#FFFFFF',
     fontSize: 24,
@@ -185,7 +204,7 @@ const styles = StyleSheet.create({
   subtitle: {
     color: '#8F97A6',
     fontSize: 14,
-    marginBottom: 18,
+    marginBottom: 0,
   },
   imagePicker: {
     height: 148,

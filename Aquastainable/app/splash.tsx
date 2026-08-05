@@ -8,11 +8,17 @@
 //   3. It lands, spreading into a puddle with an expanding ripple ring and
 //      a couple of little bounce droplets.
 //   4. Your logo fades in above the puddle it just made.
-//   5. onFinish fires — hand off to your loading screen from there.
+//   5. It slides left and shrinks, then crossfades into the full
+//      "AQUASTAINABLE" wordmark, landing exactly where the icon sits inside
+//      that image (measured from the actual asset — see the constants below).
+//   6. onFinish fires — hand off to your loading screen from there.
 //
 // Needs: react-native-svg
 //   npm install react-native-svg
 //   (bare RN: cd ios && pod install)
+//
+// Also needs assets/img/logo-text.png — the full horizontal lockup
+// (icon + wordmark in one image), alongside your existing Aque-logo.png.
 //
 // Usage in App.tsx:
 //   const [stage, setStage] = useState<'splash' | 'loading' | 'app'>('splash');
@@ -24,6 +30,27 @@ import React, { useEffect, useRef } from 'react';
 import { Animated, Easing, Image, StyleSheet, View } from 'react-native';
 import Svg, { Path, Ellipse, Circle } from 'react-native-svg';
 import Colors from './colors';
+
+// Measured directly from the actual asset files:
+//   Aque-logo.png is 460x680. logo-text.png is 4996x680, and its icon
+// portion is pixel-identical to Aque-logo.png, sitting at x=[0, 460] —
+// i.e. the icon's horizontal center sits at 230/4996 of the full width,
+// and (since both images share the same 680px height) its vertical center
+// already lines up with the lockup's own vertical center, so no Y offset
+// is needed. If you ever re-export either logo file at different
+// proportions, recompute these two constants the same way.
+const LOCKUP_ASPECT = 4996 / 680;
+const ICON_CENTER_FRACTION_X = 230 / 4996;
+
+const LOCKUP_DISPLAY_WIDTH = 240; // final on-screen width of the full wordmark
+const LOCKUP_DISPLAY_HEIGHT = LOCKUP_DISPLAY_WIDTH / LOCKUP_ASPECT;
+
+// the standalone icon renders at an effective height of 100 (contain-fit
+// inside its 100x100 box, and it's a portrait image so height is the
+// binding dimension) — shrink it to match the icon's height inside the
+// lockup, so the sizes match up when they crossfade.
+const ICON_FINAL_SCALE = LOCKUP_DISPLAY_HEIGHT / 100;
+const ICON_SLIDE_X = (ICON_CENTER_FRACTION_X - 0.5) * LOCKUP_DISPLAY_WIDTH;
 
 type Props = {
   onFinish?: () => void;
@@ -58,6 +85,10 @@ const SplashScreen: React.FC<Props> = ({ onFinish }) => {
   // phase 4: the logo
   const logoOpacity = useRef(new Animated.Value(0)).current;
   const logoScale = useRef(new Animated.Value(0.85)).current;
+
+  // phase 5: icon slides left, shrinks, and crossfades into the full wordmark
+  const iconSlideX = useRef(new Animated.Value(0)).current;
+  const lockupOpacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     // 1) tail stretches downward, picking up speed
@@ -121,13 +152,38 @@ const SplashScreen: React.FC<Props> = ({ onFinish }) => {
               Animated.spring(logoScale, { toValue: 1, friction: 4, useNativeDriver: true }),
             ]),
           ]),
-        ]).start();
+        ]).start(() => {
+          // 5) it slides left and shrinks to where it sits inside the
+          // wordmark, then crossfades into the full lockup image
+          Animated.sequence([
+            Animated.delay(300),
+            Animated.parallel([
+              Animated.timing(iconSlideX, {
+                toValue: ICON_SLIDE_X,
+                duration: 550,
+                easing: Easing.inOut(Easing.quad),
+                useNativeDriver: true,
+              }),
+              Animated.timing(logoScale, {
+                toValue: ICON_FINAL_SCALE,
+                duration: 550,
+                easing: Easing.inOut(Easing.quad),
+                useNativeDriver: true,
+              }),
+            ]),
+          ]).start(() => {
+            Animated.parallel([
+              Animated.timing(lockupOpacity, { toValue: 1, duration: 280, useNativeDriver: true }),
+              Animated.timing(logoOpacity, { toValue: 0, duration: 280, useNativeDriver: true }),
+            ]).start();
+          });
+        });
       });
     });
 
     const finishTimer = setTimeout(() => {
       onFinish && onFinish();
-    }, 3200);
+    }, 4800);
 
     return () => clearTimeout(finishTimer);
   }, []);
@@ -234,15 +290,25 @@ const SplashScreen: React.FC<Props> = ({ onFinish }) => {
           </Animated.View>
         </View>
 
-        {/* the logo, appearing above the puddle it made */}
+        {/* the icon, appearing above the puddle it made, then sliding into place */}
         <Animated.View
           style={[
             styles.logoAnchor,
-            { opacity: logoOpacity, transform: [{ scale: logoScale }] },
+            {
+              opacity: logoOpacity,
+              transform: [{ translateX: iconSlideX }, { scale: logoScale }],
+            },
           ]}
         >
           <Image source={require('../assets/logo/Aque-logo.png')} style={styles.logo} resizeMode="contain" />
         </Animated.View>
+
+        {/* the full wordmark it crossfades into, aligned so the icon lines up */}
+        <Animated.Image
+          source={require('../assets/logo/logo-text.png')}
+          resizeMode="contain"
+          style={[styles.lockup, { opacity: lockupOpacity }]}
+        />
       </View>
     </View>
   );
@@ -271,6 +337,15 @@ const styles = StyleSheet.create({
   logo: {
     width: 100,
     height: 100,
+  },
+  lockup: {
+    position: 'absolute',
+    // horizontally centered on the same point the icon is centered on
+    left: STAGE_W / 2 - LOCKUP_DISPLAY_WIDTH / 2,
+    // vertically centered on the icon's own vertical center (PUDDLE_Y - 75)
+    top: PUDDLE_Y - 75 - LOCKUP_DISPLAY_HEIGHT / 2,
+    width: LOCKUP_DISPLAY_WIDTH,
+    height: LOCKUP_DISPLAY_HEIGHT,
   },
 });
 
