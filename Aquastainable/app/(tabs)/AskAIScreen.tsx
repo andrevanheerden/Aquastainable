@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { StyleSheet, SafeAreaView, View } from 'react-native';
+import { useLocalSearchParams } from 'expo-router';
 import { ThemeType } from '../theme';
 
 import WaveBackground from '../../components/AiAssistant/WaveBackground';
@@ -10,7 +11,18 @@ import ActionToggles from '../../components/AiAssistant/ActionToggles';
 import InputBar from '../../components/AiAssistant/InputBar';
 
 export default function AskAIScreen() {
-  const [currentTheme, setCurrentTheme] = useState<ThemeType>('default');
+  const params = useLocalSearchParams<{
+    theme?: ThemeType;
+    prefillText?: string;
+    prefillMediaUri?: string;
+    prefillMediaType?: 'image' | 'video';
+  }>();
+
+  const initialTheme = params.theme ?? 'default';
+  const [currentTheme, setCurrentTheme] = useState<ThemeType>(initialTheme);
+  const prefillText = params.prefillText ?? '';
+  const prefillMediaUri = params.prefillMediaUri ?? null;
+  const prefillMediaType = params.prefillMediaType ?? null;
 
   return (
     <WaveBackground theme={currentTheme}>
@@ -27,7 +39,11 @@ export default function AskAIScreen() {
 
         <View style={styles.bottomSection}>
           <ActionToggles />
-          <InputBar />
+          <InputBar
+            initialText={prefillText}
+            initialMediaUri={prefillMediaUri}
+            initialMediaType={prefillMediaType}
+          />
         </View>
       </SafeAreaView>
     </WaveBackground>

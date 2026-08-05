@@ -1,11 +1,12 @@
 import React from 'react';
 import { SafeAreaView, ScrollView, StyleSheet, View } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 
 import MainFishDisplay from '@/components/fish&Plants/MainFishDisplay';
 import SpeciesOverview from '@/components/fish&Plants/SpeciesOverview';
 import CareCards from '@/components/fish&Plants/CareCards';
 import FishLogGrid from '@/components/fish&Plants/FishLogGrid';
+import FishSicknessAssistant, { FishSicknessPrefill } from '@/components/fish&Plants/FishSicknessAssistant';
 import { getTankDetail, Species } from '@/app/data/tankDetails';
 
 const MAIN_FISH_IMAGE = require('../../assets/fishTank/guppy.jpg');
@@ -17,6 +18,7 @@ const defaultCareItems = [
 ];
 
 export default function FishDetailsScreen() {
+  const router = useRouter();
   const { speciesId } = useLocalSearchParams<{ speciesId?: string }>();
   const tankIds = ['1', '2', '3'];
   const allSpecies = tankIds.flatMap((tankId) => getTankDetail(tankId)?.species ?? []);
@@ -50,6 +52,21 @@ export default function FishDetailsScreen() {
           />
 
           <CareCards cards={careItems} />
+
+          <FishSicknessAssistant
+            speciesName={mainSpecies?.name ?? 'Guppy'}
+            onSendToAI={(prefill: FishSicknessPrefill) => {
+              router.push({
+                pathname: '/(tabs)/AskAIScreen',
+                params: {
+                  theme: 'crimson',
+                  prefillText: prefill.text,
+                  prefillMediaUri: prefill.mediaUri ?? undefined,
+                  prefillMediaType: prefill.mediaType ?? undefined,
+                },
+              });
+            }}
+          />
 
           <View style={styles.logSection}>
             <SpeciesOverview

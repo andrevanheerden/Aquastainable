@@ -4,11 +4,17 @@ import { Feather } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { Camera } from 'expo-camera';
 
-export default function InputBar() {
-  const [text, setText] = useState<string>('');
+type Props = {
+  initialText?: string;
+  initialMediaUri?: string | null;
+  initialMediaType?: 'image' | 'video' | null;
+};
+
+export default function InputBar({ initialText = '', initialMediaUri = null, initialMediaType = null }: Props) {
+  const [text, setText] = useState<string>(initialText);
   const [showOptions, setShowOptions] = useState(false);
-  const [selectedMedia, setSelectedMedia] = useState<string | null>(null);
-  const [mediaType, setMediaType] = useState<'image' | 'video' | null>(null);
+  const [selectedMedia, setSelectedMedia] = useState<string | null>(initialMediaUri);
+  const [mediaType, setMediaType] = useState<'image' | 'video' | null>(initialMediaType);
 
   const openMediaOptions = () => setShowOptions((prev) => !prev);
 
