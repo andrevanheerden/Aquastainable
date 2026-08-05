@@ -9,13 +9,18 @@ type Props = {
   toggleFavorite: (id: string) => void;
   getSpeciesImage: () => string | number;
   cardWidth: number;
+  onPress?: () => void;
 };
 
-export default function SpeciesCard({ item, index, favorites, toggleFavorite, getSpeciesImage, cardWidth }: Props) {
+export default function SpeciesCard({ item, index, favorites, toggleFavorite, getSpeciesImage, cardWidth, onPress }: Props) {
   const imageSource = getSpeciesImage();
 
   return (
-    <View style={[localStyles.speciesCard, { width: cardWidth }]}>
+    <TouchableOpacity
+      style={[localStyles.speciesCard, { width: cardWidth }]}
+      onPress={onPress}
+      activeOpacity={onPress ? 0.85 : 1}
+    >
       <View style={localStyles.speciesCardHeader}>
         <Image
           source={typeof imageSource === 'string' ? { uri: imageSource } : imageSource}
@@ -54,7 +59,7 @@ export default function SpeciesCard({ item, index, favorites, toggleFavorite, ge
           <Text style={localStyles.speciesDataValue}>{item.feeding}</Text>
         </View>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 }
 

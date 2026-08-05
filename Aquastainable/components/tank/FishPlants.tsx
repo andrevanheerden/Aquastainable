@@ -11,9 +11,10 @@ type Props = {
   cardWidth: number;
   cardStride: number;
   onSpeciesScrollEnd: (e: any) => void;
+  onSpeciesPress?: (item: any) => void;
 };
 
-export default function FishPlants({ species, speciesListRef, getSpeciesImage, favorites, toggleFavorite, cardWidth, cardStride, onSpeciesScrollEnd }: Props) {
+export default function FishPlants({ species, speciesListRef, getSpeciesImage, favorites, toggleFavorite, cardWidth, cardStride, onSpeciesScrollEnd, onSpeciesPress }: Props) {
   return (
     <>
       <Text style={localStyles.sectionTitle}>Fish & plants</Text>
@@ -36,6 +37,7 @@ export default function FishPlants({ species, speciesListRef, getSpeciesImage, f
             toggleFavorite={toggleFavorite}
             getSpeciesImage={() => getSpeciesImage(item.id, index)}
             cardWidth={cardWidth}
+            onPress={() => onSpeciesPress?.(item)}
           />
         )}
       />

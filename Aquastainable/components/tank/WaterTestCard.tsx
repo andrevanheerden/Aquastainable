@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { TouchableOpacity, View, Text, StyleSheet } from 'react-native';
 
 type Props = {
   conditions: {
@@ -10,13 +10,14 @@ type Props = {
     lastTestedDaysAgo: number;
     waterQuality: string;
   };
+  onPress?: () => void;
 };
 
-export default function WaterTestCard({ conditions }: Props) {
+export default function WaterTestCard({ conditions, onPress }: Props) {
   const nextTestDue = conditions.lastTestedDaysAgo >= 7 ? 'Due now' : `${7 - conditions.lastTestedDaysAgo} days`;
 
   return (
-    <View style={styles.card}>
+    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={onPress ? 0.9 : 1}>
       <View style={styles.headerRow}>
         <Text style={styles.title}>Water Test</Text>
         <View style={[styles.statusPill, conditions.waterQuality === 'Excellent' ? styles.statusExcellent : styles.statusNeedsAttention]}>
@@ -45,12 +46,12 @@ export default function WaterTestCard({ conditions }: Props) {
           <Text style={styles.dataLabel}>Nitrite</Text>
           <Text style={styles.dataValue}>{conditions.nitritePpm}</Text>
         </View>
-        <View style={styles.dataRow}> 
+        <View style={styles.dataRow}>
           <Text style={styles.dataLabel}>Next test</Text>
           <Text style={styles.dataValue}>{nextTestDue}</Text>
         </View>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 }
 

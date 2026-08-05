@@ -153,7 +153,10 @@ export default function TankInfoScreen() {
 
           <NeedToKnow conditions={tank.conditions} />
 
-          <WaterTestCard conditions={tank.conditions} />
+          <WaterTestCard
+            conditions={tank.conditions}
+            onPress={() => router.push({ pathname: '/(tabs)/waterTestDetails', params: { tankId: tank.tankId } })}
+          />
 
           <FishPlants
             species={tank.species}
@@ -164,6 +167,10 @@ export default function TankInfoScreen() {
             cardWidth={CARD_WIDTH}
             cardStride={CARD_STRIDE}
             onSpeciesScrollEnd={onSpeciesScrollEnd}
+            onSpeciesPress={(item) => {
+              const dest = item.type === 'plant' ? '/(tabs)/plantDetails' : '/(tabs)/fishDetails';
+              router.push({ pathname: dest, params: { speciesId: item.id } });
+            }}
           />
 
           {/* Pagination Dots */}
