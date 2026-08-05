@@ -190,7 +190,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     right: 40,
-    bottom: 10,
+    top: -10,
   },
   closeIcon: {
     color: '#B3B9C9',

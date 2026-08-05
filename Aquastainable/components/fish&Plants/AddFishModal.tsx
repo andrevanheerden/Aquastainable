@@ -189,6 +189,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#1B1D26',
     alignItems: 'center',
     justifyContent: 'center',
+    right: 40,
+    top: -10,
   },
   closeIcon: {
     color: '#B3B9C9',

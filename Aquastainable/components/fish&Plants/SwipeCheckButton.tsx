@@ -17,12 +17,12 @@ export default function SwipeCheckButton({ onSwipe, label = 'Swipe to check comp
       onStartShouldSetPanResponder: () => !disabled,
       onMoveShouldSetPanResponder: (_, gestureState) => !disabled && Math.abs(gestureState.dx) > Math.abs(gestureState.dy),
       onPanResponderMove: (_, gestureState) => {
-        const activeMaxTranslate = Math.max(0, containerWidthRef.current - 60 - 16);
+        const activeMaxTranslate = Math.max(0, containerWidthRef.current - 48 - 16);
         const nextValue = Math.max(0, Math.min(gestureState.dx, activeMaxTranslate));
         pan.setValue(nextValue);
       },
       onPanResponderRelease: (_, gestureState) => {
-        const activeMaxTranslate = Math.max(0, containerWidthRef.current - 60 - 16);
+        const activeMaxTranslate = Math.max(0, containerWidthRef.current - 48 - 16);
         if (gestureState.dx >= activeMaxTranslate * 0.75) {
           Animated.timing(pan, {
             toValue: activeMaxTranslate,
@@ -48,7 +48,7 @@ export default function SwipeCheckButton({ onSwipe, label = 'Swipe to check comp
     })
   ).current;
 
-  const maxTranslate = Math.max(0, containerWidthRef.current - 60 - 16);
+  const maxTranslate = Math.max(0, containerWidthRef.current - 48 - 16);
   const textOpacity = pan.interpolate({
     inputRange: [0, Math.max(1, maxTranslate * 0.5)],
     outputRange: [1, 0],
@@ -94,9 +94,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   thumb: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: '#5B8CFF',
     alignItems: 'center',
     justifyContent: 'center',

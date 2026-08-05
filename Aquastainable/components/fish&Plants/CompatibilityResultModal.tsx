@@ -1,5 +1,6 @@
 import React from 'react';
 import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import Colors from '../../app/colors';
 import SwipeCheckButton from './SwipeCheckButton';
 
 type Analysis = {
@@ -19,23 +20,25 @@ type Props = {
 
 export default function CompatibilityResultModal({ visible, analysis, typeLabel, onClose, onSwipeToAdd }: Props) {
   const canAdd = analysis?.unlock ?? false;
-  const buttonLabel = canAdd ? `Swipe to add ${typeLabel}` : `Cannot add ${typeLabel}`;
+  const buttonLabel = canAdd ? `Swipe to add ${typeLabel}` : `Swipe to return`;
+  const pillLabel = canAdd ? 'Compatible' : 'Not compatible';
+  const pillColor = canAdd ? Colors.success : Colors.error;
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={styles.backdrop}>
         <TouchableOpacity style={styles.backdropTouchable} activeOpacity={1} onPress={onClose} />
         <View style={styles.card}>
-          <Text style={styles.title}>{analysis?.title ?? 'Compatibility result'}</Text>
+          <View style={[styles.pill, { backgroundColor: pillColor }]}> 
+            <Text style={styles.pillText}>{pillLabel}</Text>
+          </View>
+          <Text style={[styles.title, styles.titleWithPill]}>{analysis?.title ?? 'Compatibility result'}</Text>
           <Text style={styles.details}>{analysis?.details ?? 'No analysis available.'}</Text>
           <View style={styles.divider} />
           <SwipeCheckButton
             label={buttonLabel}
-            onSwipe={canAdd ? onSwipeToAdd : () => undefined}
-            disabled={!canAdd}
+            onSwipe={canAdd ? onSwipeToAdd : onClose}
           />
-          <Text style={styles.secondaryLabel}>Swipe to return to form</Text>
-          <SwipeCheckButton label="Swipe to return" onSwipe={onClose} />
         </View>
       </View>
     </Modal>
@@ -65,6 +68,9 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     marginBottom: 12,
   },
+  titleWithPill: {
+    marginTop: 36,
+  },
   details: {
     color: '#B3B9C9',
     fontSize: 15,
@@ -75,6 +81,20 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: 'rgba(255,255,255,0.08)',
     marginBottom: 22,
+  },
+  pill: {
+    position: 'absolute',
+    top: 20,
+    left: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    zIndex: 1,
+  },
+  pillText: {
+    color: Colors.white,
+    fontSize: 12,
+    fontWeight: '700',
   },
   secondaryLabel: {
     color: '#8F97A6',
