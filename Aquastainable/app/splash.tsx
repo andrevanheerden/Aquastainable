@@ -9,7 +9,7 @@ import Colors from './colors';
 const LOCKUP_ASPECT = 4996 / 680;
 const ICON_CENTER_FRACTION_X = 230 / 4996;
 
-const LOCKUP_DISPLAY_WIDTH = 240; // final on-screen width of the full wordmark
+const LOCKUP_DISPLAY_WIDTH = 240; 
 const LOCKUP_DISPLAY_HEIGHT = LOCKUP_DISPLAY_WIDTH / LOCKUP_ASPECT;
 
 
