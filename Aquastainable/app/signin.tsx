@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { Image, Keyboard, Pressable, SafeAreaView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import Colors from './colors';
+import { useAuthApi } from './hooks/useAuthApi';
 
 const heroImage = require('../assets/logo/Fish.jpeg');
 
@@ -12,6 +13,31 @@ export default function SignInScreen() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const { loading, error, signIn } = useAuthApi();
+  const [formError, setFormError] = useState('');
+
+  const handleSignIn = async () => {
+    setFormError('');
+
+    if (!email.trim()) {
+      setError('Please enter your email address.');
+      return;
+    }
+    if (!password) {
+      setError('Please enter your password.');
+      return;
+    }
+
+    try {
+      await signIn({
+        email: email.trim(),
+        password,
+      });
+      router.replace('/loading');
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : 'Unable to sign in.');
+    }
+  };
 
   useEffect(() => {
     const showSub = Keyboard.addListener('keyboardDidShow', () => setKeyboardVisible(true));
@@ -31,6 +57,7 @@ export default function SignInScreen() {
         <Text style={styles.subtitle}>Sign in to continue managing your aquarium and plants.</Text>
 
         <View style={styles.form}>
+          {formError ? <Text style={styles.errorText}>{formError}</Text> : null}
           <TextInput
             value={email}
             onChangeText={setEmail}
@@ -57,8 +84,8 @@ export default function SignInScreen() {
             </Pressable>
           </View>
 
-          <Pressable style={styles.primaryButton} onPress={() => router.replace('/loading')}>
-            <Text style={styles.primaryButtonText}>Continue with Email</Text>
+          <Pressable style={styles.primaryButton} onPress={handleSignIn} disabled={loading}>
+            <Text style={styles.primaryButtonText}>{loading ? 'Signing in...' : 'Continue with Email'}</Text>
           </Pressable>
 
           <View style={styles.footerRow}>
@@ -156,6 +183,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: 20,
+  },
+  errorText: {
+    color: '#FFB3B3',
+    marginBottom: 12,
+    textAlign: 'center',
   },
   footerText: {
     color: Colors.gray,

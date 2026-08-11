@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { Image, Keyboard, Pressable, SafeAreaView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import Colors from './colors';
+import { useAuthApi } from './hooks/useAuthApi';
 
 const heroImage = require('../assets/logo/Fish.jpeg');
 
@@ -15,6 +16,41 @@ export default function SignUpScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const { loading, error, signUp } = useAuthApi();
+  const [formError, setFormError] = useState('');
+
+  const handleSignUp = async () => {
+    setFormError('');
+
+    if (!username.trim()) {
+      setError('Please enter a username.');
+      return;
+    }
+    if (!email.trim()) {
+      setError('Please enter an email address.');
+      return;
+    }
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters.');
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError('Passwords do not match.');
+      return;
+    }
+
+    try {
+      await signUp({
+        email: email.trim(),
+        password,
+        username: username.trim(),
+        profileImageUrl: null,
+      });
+      router.replace('/loading');
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : 'Unable to create account.');
+    }
+  };
 
   useEffect(() => {
     const showSub = Keyboard.addListener('keyboardDidShow', () => setKeyboardVisible(true));
@@ -35,6 +71,7 @@ export default function SignUpScreen() {
         <Text style={styles.subtitle}>Create your account and start tracking your aquarium care.</Text>
 
         <View style={styles.form}>
+          {formError ? <Text style={styles.errorText}>{formError}</Text> : null}
           <TextInput
             value={username}
             onChangeText={setUsername}
@@ -85,8 +122,8 @@ export default function SignUpScreen() {
             </Pressable>
           </View>
 
-          <Pressable style={styles.primaryButton} onPress={() => router.replace('/loading')}>
-            <Text style={styles.primaryButtonText}>Continue with Email</Text>
+          <Pressable style={styles.primaryButton} onPress={handleSignUp} disabled={loading}>
+            <Text style={styles.primaryButtonText}>{loading ? 'Creating account...' : 'Continue with Email'}</Text>
           </Pressable>
 
           <View style={styles.footerRow}>
@@ -189,6 +226,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginRight: 8,
   },
+  errorText: {
+    color: '#FFB3B3',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
   footerLink: {
     paddingVertical: 2,
   },
@@ -215,6 +257,10 @@ const styles = StyleSheet.create({
     color: Colors.waterFill,
     fontSize: 14,
     fontWeight: '700',
+  },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
   },
   hiddenBackground: {
     height: 0,
