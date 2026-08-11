@@ -62,10 +62,6 @@ export default function SignUpScreen() {
             <Text style={styles.primaryButtonText}>Continue with Email</Text>
           </Pressable>
 
-          <Pressable style={styles.secondaryButton} onPress={() => {}}>
-            <Text style={styles.secondaryButtonText}>Continue with Google</Text>
-          </Pressable>
-
           <View style={styles.footerRow}>
             <Text style={styles.footerText}>Already have an account?</Text>
             <Link href="/signin" style={styles.footerLink}>
@@ -87,7 +83,7 @@ const styles = StyleSheet.create({
   backgroundImage: {
     ...StyleSheet.absoluteFillObject,
     width: '100%',
-    height: '33%',
+    height: '42%',
     resizeMode: 'cover',
   },
 
@@ -129,7 +125,7 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 56,
     borderRadius: 18,
-    backgroundColor: Colors.primary,
+    backgroundColor: Colors.waterFill,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 8,
@@ -144,7 +140,7 @@ const styles = StyleSheet.create({
     height: 56,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: Colors.white,
+    borderColor: Colors.waterFill,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 14,
@@ -170,7 +166,7 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   footerLinkText: {
-    color: Colors.primary,
+    color: Colors.waterFill,
     fontSize: 14,
     fontWeight: '700',
   },
