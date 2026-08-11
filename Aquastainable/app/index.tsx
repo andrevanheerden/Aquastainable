@@ -7,7 +7,7 @@ export default function Index() {
   const router = useRouter();
 
   const handleFinish = useCallback(() => {
-    router.replace("/loading");
+    router.replace("/signin");
   }, [router]);
 
   return <SplashScreen onFinish={handleFinish} />;
