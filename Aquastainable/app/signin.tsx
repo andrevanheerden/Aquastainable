@@ -1,6 +1,6 @@
 ﻿import { Link, useRouter } from 'expo-router';
-import React, { useState } from 'react';
-import { Image, Pressable, SafeAreaView, StyleSheet, Text, TextInput, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { Image, Keyboard, Pressable, SafeAreaView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import Colors from './colors';
 
@@ -10,11 +10,20 @@ export default function SignInScreen() {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener('keyboardDidShow', () => setKeyboardVisible(true));
+    const hideSub = Keyboard.addListener('keyboardDidHide', () => setKeyboardVisible(false));
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <Image source={heroImage} style={styles.backgroundImage} />
-      <View style={styles.overlay} />
+      <Image source={heroImage} style={[styles.backgroundImage, keyboardVisible && styles.hiddenBackground]} />
 
       <View style={styles.content}>
         <Text style={styles.title}>Welcome back</Text>
@@ -154,5 +163,9 @@ const styles = StyleSheet.create({
     color: Colors.primary,
     fontSize: 14,
     fontWeight: '700',
+  },
+  hiddenBackground: {
+    height: 0,
+    opacity: 0,
   },
 });
