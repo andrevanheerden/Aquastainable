@@ -10,6 +10,7 @@ export default function SignInScreen() {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
 
   useEffect(() => {
@@ -39,14 +40,22 @@ export default function SignInScreen() {
             keyboardType="email-address"
             autoCapitalize="none"
           />
-          <TextInput
-            value={password}
-            onChangeText={setPassword}
-            placeholder="Password"
-            placeholderTextColor={Colors.gray}
-            style={styles.input}
-            secureTextEntry
-          />
+          <View style={styles.passwordRow}>
+            <TextInput
+              value={password}
+              onChangeText={setPassword}
+              placeholder="Password"
+              placeholderTextColor={Colors.gray}
+              style={[styles.input, styles.passwordInput]}
+              secureTextEntry={!showPassword}
+            />
+            <Pressable
+              style={styles.showButton}
+              onPress={() => setShowPassword((prev) => !prev)}
+            >
+              <Text style={styles.showButtonText}>{showPassword ? 'Hide' : 'Show'}</Text>
+            </Pressable>
+          </View>
 
           <Pressable style={styles.primaryButton} onPress={() => router.replace('/loading')}>
             <Text style={styles.primaryButtonText}>Continue with Email</Text>
@@ -157,6 +166,25 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   footerLinkText: {
+    color: Colors.waterFill,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  passwordRow: {
+    position: 'relative',
+  },
+  passwordInput: {
+    paddingRight: 90,
+  },
+  showButton: {
+    position: 'absolute',
+    right: 16,
+    top: 12,
+    height: 30,
+    paddingHorizontal: 10,
+    justifyContent: 'center',
+  },
+  showButtonText: {
     color: Colors.waterFill,
     fontSize: 14,
     fontWeight: '700',

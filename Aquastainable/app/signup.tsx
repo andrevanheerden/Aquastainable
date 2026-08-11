@@ -8,9 +8,12 @@ const heroImage = require('../assets/logo/Fish.jpeg');
 
 export default function SignUpScreen() {
   const router = useRouter();
+  const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
 
   useEffect(() => {
@@ -33,6 +36,14 @@ export default function SignUpScreen() {
 
         <View style={styles.form}>
           <TextInput
+            value={username}
+            onChangeText={setUsername}
+            placeholder="Username"
+            placeholderTextColor={Colors.gray}
+            style={styles.input}
+            autoCapitalize="none"
+          />
+          <TextInput
             value={email}
             onChangeText={setEmail}
             placeholder="Email address"
@@ -41,22 +52,38 @@ export default function SignUpScreen() {
             keyboardType="email-address"
             autoCapitalize="none"
           />
-          <TextInput
-            value={password}
-            onChangeText={setPassword}
-            placeholder="Password"
-            placeholderTextColor={Colors.gray}
-            style={styles.input}
-            secureTextEntry
-          />
-          <TextInput
-            value={confirmPassword}
-            onChangeText={setConfirmPassword}
-            placeholder="Confirm password"
-            placeholderTextColor={Colors.gray}
-            style={styles.input}
-            secureTextEntry
-          />
+          <View style={styles.passwordRow}>
+            <TextInput
+              value={password}
+              onChangeText={setPassword}
+              placeholder="Password"
+              placeholderTextColor={Colors.gray}
+              style={[styles.input, styles.passwordInput]}
+              secureTextEntry={!showPassword}
+            />
+            <Pressable
+              style={styles.showButton}
+              onPress={() => setShowPassword((prev) => !prev)}
+            >
+              <Text style={styles.showButtonText}>{showPassword ? 'Hide' : 'Show'}</Text>
+            </Pressable>
+          </View>
+          <View style={styles.passwordRow}>
+            <TextInput
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+              placeholder="Confirm password"
+              placeholderTextColor={Colors.gray}
+              style={[styles.input, styles.passwordInput]}
+              secureTextEntry={!showConfirmPassword}
+            />
+            <Pressable
+              style={styles.showButton}
+              onPress={() => setShowConfirmPassword((prev) => !prev)}
+            >
+              <Text style={styles.showButtonText}>{showConfirmPassword ? 'Hide' : 'Show'}</Text>
+            </Pressable>
+          </View>
 
           <Pressable style={styles.primaryButton} onPress={() => router.replace('/loading')}>
             <Text style={styles.primaryButtonText}>Continue with Email</Text>
@@ -83,7 +110,7 @@ const styles = StyleSheet.create({
   backgroundImage: {
     ...StyleSheet.absoluteFillObject,
     width: '100%',
-    height: '42%',
+    height: '34%',
     resizeMode: 'cover',
   },
 
@@ -166,6 +193,25 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   footerLinkText: {
+    color: Colors.waterFill,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  passwordRow: {
+    position: 'relative',
+  },
+  passwordInput: {
+    paddingRight: 90,
+  },
+  showButton: {
+    position: 'absolute',
+    right: 16,
+    top: 12,
+    height: 30,
+    paddingHorizontal: 10,
+    justifyContent: 'center',
+  },
+  showButtonText: {
     color: Colors.waterFill,
     fontSize: 14,
     fontWeight: '700',
