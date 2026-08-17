@@ -3,6 +3,7 @@ const cors = require('cors');
 const dotenv = require('dotenv');
 const axios = require('axios');
 const admin = require('firebase-admin');
+const { randomUUID } = require('crypto');
 const { getAuth } = require('firebase-admin/auth');
 const { getFirestore, FieldValue } = require('firebase-admin/firestore');
 
@@ -29,6 +30,51 @@ admin.initializeApp({
 
 const db = getFirestore();
 const auth = getAuth();
+
+function normalizeTankPayload(payload = {}) {
+  const userId = (payload.user_id || payload.userId || '').toString().trim();
+  const tankName = (payload.tankName || payload.name || '').toString().trim();
+  const waterType = (payload.waterType || payload.water_type || '').toString().trim();
+  const tankImg = (payload.tankImg || payload.tankImage || '').toString().trim();
+  const overview = (payload.overview || '').toString();
+  const aquaCare = payload.aquaCare || payload.aqua_care || {};
+  const tankSize = Number(payload.tankSize ?? payload.tank_size ?? payload.size ?? 0);
+
+  if (!userId) {
+    throw new Error('user_id is required to create a tank.');
+  }
+
+  if (!tankName) {
+    throw new Error('tankName is required.');
+  }
+
+  if (!waterType) {
+    throw new Error('waterType is required.');
+  }
+
+  if (!Number.isFinite(tankSize) || tankSize <= 0) {
+    throw new Error('tankSize must be a number greater than 0.');
+  }
+
+  const tankId = (payload.tankId || payload.id || randomUUID()).toString();
+
+  return {
+    id: tankId,
+    tankId,
+    user_id: userId,
+    tankName,
+    tankImg,
+    waterType,
+    tankSize,
+    overview,
+    aquaCare,
+    createdAt: FieldValue.serverTimestamp(),
+  };
+}
+
+app.get('/health', (req, res) => {
+  return res.status(200).json({ status: 'ok' });
+});
 
 app.post('/signup', async (req, res) => {
   try {
@@ -90,6 +136,62 @@ app.post('/signin', async (req, res) => {
     console.error(error?.response?.data || error);
     const message = error?.response?.data?.error?.message || error?.message || 'Unable to sign in.';
     return res.status(401).json({ error: message });
+  }
+});
+
+app.post('/tanks', async (req, res) => {
+  try {
+    const tank = normalizeTankPayload(req.body);
+    const tankRef = db.collection('tanks').doc(tank.id);
+    await tankRef.set(tank);
+
+    return res.status(201).json({
+      ...tank,
+      createdAt: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error('Tank create error:', error);
+    return res.status(400).json({ error: error.message || 'Failed to create tank.' });
+  }
+});
+
+app.get('/tanks/:userId', async (req, res) => {
+  try {
+    const userId = req.params.userId;
+    const snapshot = await db.collection('tanks').where('user_id', '==', userId).get();
+
+    const tanks = snapshot.docs.map((doc) => ({
+      id: doc.id,
+      tankId: doc.data().tankId || doc.id,
+      ...doc.data(),
+    }));
+
+    return res.status(200).json(tanks);
+  } catch (error) {
+    console.error('Get tanks error:', error);
+    return res.status(500).json({ error: error.message || 'Failed to get tanks.' });
+  }
+});
+
+app.get('/tanks/:userId/:tankId', async (req, res) => {
+  try {
+    const { tankId, userId } = req.params;
+    const tankRef = db.collection('tanks').doc(tankId);
+    const tankDoc = await tankRef.get();
+
+    if (!tankDoc.exists) {
+      return res.status(404).json({ error: 'Tank not found.' });
+    }
+
+    const data = tankDoc.data();
+    if (data.user_id !== userId) {
+      return res.status(403).json({ error: 'Tank does not belong to this user.' });
+    }
+
+    return res.status(200).json({ id: tankDoc.id, tankId: data.tankId || tankDoc.id, ...data });
+  } catch (error) {
+    console.error('Get tank by id error:', error);
+    return res.status(500).json({ error: error.message || 'Failed to get tank.' });
   }
 });
 
