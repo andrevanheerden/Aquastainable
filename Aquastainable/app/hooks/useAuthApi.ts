@@ -1,5 +1,8 @@
 import { useCallback, useState } from 'react';
 import axios from 'axios';
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
+
+import { auth } from '@/firebase';
 
 const API_BASE_URL = 'http://localhost:4000';
 
@@ -39,11 +42,15 @@ export function useAuthApi() {
   }, []);
 
   const signUp = useCallback(async (payload: SignUpPayload) => {
-    return requestApi('/signup', payload);
+    await requestApi('/signup', payload);
+    const userCredential = await signInWithEmailAndPassword(auth, payload.email, payload.password);
+    return userCredential.user;
   }, [requestApi]);
 
   const signIn = useCallback(async (payload: SignInPayload) => {
-    return requestApi('/signin', payload);
+    await requestApi('/signin', payload);
+    const userCredential = await signInWithEmailAndPassword(auth, payload.email, payload.password);
+    return userCredential.user;
   }, [requestApi]);
 
   const clearError = useCallback(() => setError(''), []);

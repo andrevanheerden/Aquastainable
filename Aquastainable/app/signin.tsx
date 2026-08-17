@@ -20,11 +20,11 @@ export default function SignInScreen() {
     setFormError('');
 
     if (!email.trim()) {
-      setError('Please enter your email address.');
+      setFormError('Please enter your email address.');
       return;
     }
     if (!password) {
-      setError('Please enter your password.');
+      setFormError('Please enter your password.');
       return;
     }
 

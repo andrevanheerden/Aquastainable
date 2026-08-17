@@ -3,6 +3,7 @@ const cors = require('cors');
 const dotenv = require('dotenv');
 const axios = require('axios');
 const admin = require('firebase-admin');
+const cloudinary = require('cloudinary').v2;
 const { randomUUID } = require('crypto');
 const { getAuth } = require('firebase-admin/auth');
 const { getFirestore, FieldValue } = require('firebase-admin/firestore');
@@ -11,7 +12,12 @@ dotenv.config();
 
 const app = express();
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '20mb' }));
+app.use(express.urlencoded({ extended: true, limit: '20mb' }));
+
+if (process.env.CLOUDINARY_URL) {
+  cloudinary.config({ secure: true, cloudinary_url: process.env.CLOUDINARY_URL });
+}
 
 const { FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY, FIREBASE_API_KEY } = process.env;
 
@@ -30,6 +36,34 @@ admin.initializeApp({
 
 const db = getFirestore();
 const auth = getAuth();
+
+async function uploadTankImageToCloudinary(tankImg) {
+  if (!tankImg) {
+    return '';
+  }
+
+  if (tankImg.includes('res.cloudinary.com') || tankImg.includes('cloudinary')) {
+    return tankImg;
+  }
+
+  if (!process.env.CLOUDINARY_URL) {
+    return tankImg;
+  }
+
+  try {
+    const result = await cloudinary.uploader.upload(tankImg, {
+      folder: 'aquastainable/tanks',
+      resource_type: 'image',
+      use_filename: true,
+      unique_filename: false,
+    });
+
+    return result.secure_url || result.url || tankImg;
+  } catch (error) {
+    console.error('Cloudinary upload failed:', error.message || error);
+    return tankImg;
+  }
+}
 
 function normalizeTankPayload(payload = {}) {
   const userId = (payload.user_id || payload.userId || '').toString().trim();
@@ -142,11 +176,16 @@ app.post('/signin', async (req, res) => {
 app.post('/tanks', async (req, res) => {
   try {
     const tank = normalizeTankPayload(req.body);
-    const tankRef = db.collection('tanks').doc(tank.id);
-    await tankRef.set(tank);
+    const uploadedImageUrl = await uploadTankImageToCloudinary(tank.tankImg);
+    const tankPayload = {
+      ...tank,
+      tankImg: uploadedImageUrl,
+    };
+    const tankRef = db.collection('tanks').doc(tankPayload.id);
+    await tankRef.set(tankPayload);
 
     return res.status(201).json({
-      ...tank,
+      ...tankPayload,
       createdAt: new Date().toISOString(),
     });
   } catch (error) {

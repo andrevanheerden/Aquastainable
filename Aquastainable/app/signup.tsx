@@ -23,19 +23,19 @@ export default function SignUpScreen() {
     setFormError('');
 
     if (!username.trim()) {
-      setError('Please enter a username.');
+      setFormError('Please enter a username.');
       return;
     }
     if (!email.trim()) {
-      setError('Please enter an email address.');
+      setFormError('Please enter an email address.');
       return;
     }
     if (password.length < 6) {
-      setError('Password must be at least 6 characters.');
+      setFormError('Password must be at least 6 characters.');
       return;
     }
     if (password !== confirmPassword) {
-      setError('Passwords do not match.');
+      setFormError('Passwords do not match.');
       return;
     }
 

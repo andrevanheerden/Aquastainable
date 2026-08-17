@@ -5,6 +5,7 @@ import {
   Animated,
   Dimensions,
   FlatList,
+  Image,
   ImageBackground,
   Modal,
   PanResponder,
@@ -18,6 +19,8 @@ import {
   View,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
+import { onAuthStateChanged } from 'firebase/auth';
 
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import Colors from '../colors';
@@ -110,6 +113,7 @@ export default function HomeScreen() {
   const [activeIndex, setActiveIndex] = useState(0);
   const [activeMetricIndex, setActiveMetricIndex] = useState(0);
   const [isAddModalVisible, setIsAddModalVisible] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [form, setForm] = useState({
     tankName: '',
     tankImg: '',
@@ -121,16 +125,22 @@ export default function HomeScreen() {
   const metricsCardGap = 8;
   const metricsStepWidth = metricsCardWidth + metricsCardGap;
 
-  const userId = auth.currentUser?.uid;
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setCurrentUserId(user?.uid ?? null);
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   const loadTanks = async () => {
-    if (!userId) {
+    if (!currentUserId) {
       setTanks([]);
       return;
     }
 
     try {
-      const response = await getUserTanks(userId);
+      const response = await getUserTanks(currentUserId);
       setTanks(Array.isArray(response) ? response : []);
       setActiveIndex(0);
     } catch (error) {
@@ -140,7 +150,7 @@ export default function HomeScreen() {
 
   useEffect(() => {
     loadTanks();
-  }, [userId]);
+  }, [currentUserId]);
 
   const screenPanResponder = useRef(
     PanResponder.create({
@@ -177,8 +187,36 @@ export default function HomeScreen() {
     setForm({ tankName: '', tankImg: '', waterType: 'Freshwater', tankSize: '20' });
   };
 
+  const handlePickTankImage = async (source: 'library' | 'camera') => {
+    try {
+      const pickerResult = source === 'library'
+        ? await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsEditing: true,
+            quality: 0.8,
+            base64: true,
+          })
+        : await ImagePicker.launchCameraAsync({
+            allowsEditing: true,
+            quality: 0.8,
+            base64: true,
+          });
+
+      if (pickerResult.canceled || !pickerResult.assets?.[0]) {
+        return;
+      }
+
+      const asset = pickerResult.assets[0];
+      const imageData = asset.base64 ? `data:image/jpeg;base64,${asset.base64}` : asset.uri;
+
+      setForm((prev) => ({ ...prev, tankImg: imageData }));
+    } catch (error) {
+      Alert.alert('Image error', 'Unable to pick an image right now.');
+    }
+  };
+
   const handleCreateTank = async () => {
-    if (!userId) {
+    if (!currentUserId) {
       Alert.alert('Login required', 'Please sign in before creating a tank.');
       return;
     }
@@ -190,7 +228,7 @@ export default function HomeScreen() {
 
     try {
       await createTank({
-        user_id: userId,
+        user_id: currentUserId,
         tankName: form.tankName.trim(),
         tankImg: form.tankImg.trim(),
         waterType: form.waterType.trim(),
@@ -290,34 +328,44 @@ export default function HomeScreen() {
         <Pressable style={styles.modalOverlay} onPress={() => setIsAddModalVisible(false)}>
           <Pressable style={styles.modalCard} onPress={() => {}}>
             <Text style={styles.modalTitle}>Add new tank</Text>
+            <Text style={styles.fieldHeader}>Please add the details below</Text>
 
+            <Text style={styles.label}>Tank image</Text>
+            <View style={styles.imagePickerRow}>
+              <TouchableOpacity style={styles.imagePickerButton} onPress={() => handlePickTankImage('library')}>
+                <Text style={styles.imagePickerButtonText}>Choose from gallery</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.imagePickerButtonSecondary} onPress={() => handlePickTankImage('camera')}>
+                <Text style={styles.imagePickerButtonText}>Use camera</Text>
+              </TouchableOpacity>
+            </View>
+
+            {form.tankImg ? (
+              <Image source={{ uri: form.tankImg }} style={styles.previewImage} resizeMode="cover" />
+            ) : null}
+
+            <Text style={styles.label}>Tank name</Text>
             <TextInput
               style={styles.input}
-              placeholder="Tank name"
+              placeholder="Enter tank name"
               placeholderTextColor="#8a8a8a"
               value={form.tankName}
               onChangeText={(value) => setForm((prev) => ({ ...prev, tankName: value }))}
             />
 
+            <Text style={styles.label}>Water type</Text>
             <TextInput
               style={styles.input}
-              placeholder="Tank image URL"
-              placeholderTextColor="#8a8a8a"
-              value={form.tankImg}
-              onChangeText={(value) => setForm((prev) => ({ ...prev, tankImg: value }))}
-            />
-
-            <TextInput
-              style={styles.input}
-              placeholder="Water type"
+              placeholder="Enter water type"
               placeholderTextColor="#8a8a8a"
               value={form.waterType}
               onChangeText={(value) => setForm((prev) => ({ ...prev, waterType: value }))}
             />
 
+            <Text style={styles.label}>Tank size (litres)</Text>
             <TextInput
               style={styles.input}
-              placeholder="Tank size"
+              placeholder="Enter tank size in litres"
               keyboardType="numeric"
               placeholderTextColor="#8a8a8a"
               value={form.tankSize}
@@ -547,7 +595,20 @@ const styles = StyleSheet.create({
     color: Colors.white,
     fontSize: 24,
     fontWeight: '700',
-    marginBottom: 16,
+    marginBottom: 8,
+  },
+  fieldHeader: {
+    color: '#c7d4ff',
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 18,
+  },
+  label: {
+    color: '#dfe7ff',
+    fontSize: 12,
+    fontWeight: '700',
+    marginBottom: 8,
+    letterSpacing: 0.4,
   },
   input: {
     backgroundColor: '#2a2e39',
@@ -557,6 +618,36 @@ const styles = StyleSheet.create({
     color: Colors.white,
     marginBottom: 12,
     fontSize: 15,
+  },
+  imagePickerRow: {
+    flexDirection: 'row',
+    marginBottom: 12,
+    gap: 8,
+  },
+  imagePickerButton: {
+    flex: 1,
+    backgroundColor: '#2a7dff',
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  imagePickerButtonSecondary: {
+    flex: 1,
+    backgroundColor: '#3c4658',
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  imagePickerButtonText: {
+    color: Colors.white,
+    fontWeight: '700',
+  },
+  previewImage: {
+    width: '100%',
+    height: 160,
+    borderRadius: 14,
+    marginBottom: 12,
+    backgroundColor: '#2a2e39',
   },
   modalActions: {
     flexDirection: 'row',
