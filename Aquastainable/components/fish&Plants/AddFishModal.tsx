@@ -1,19 +1,14 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Alert, Image, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import * as ImagePicker from 'expo-image-picker';
+import { onAuthStateChanged } from 'firebase/auth';
 import SwipeCheckButton from './SwipeCheckButton';
-import CompatibilityResultModal from './CompatibilityResultModal';
+import { useFishApi, FishSpecies } from '../../app/hooks/useFishApi';
+import { auth } from '@/firebase';
 
 type Props = {
   visible: boolean;
   onClose: () => void;
-};
-
-type Analysis = {
-  title: string;
-  details: string;
-  success: boolean;
-  unlock: boolean;
+  tankId?: string;
 };
 
 const TANK_OPTIONS = [
@@ -22,57 +17,100 @@ const TANK_OPTIONS = [
   { id: '3', label: 'Treehouse Aquascape' },
 ];
 
-export default function AddFishModal({ visible, onClose }: Props) {
-  const [imageUri, setImageUri] = useState<string | null>(null);
+export default function AddFishModal({ visible, onClose, tankId: defaultTankId }: Props) {
+  const { searchFish, addFishToTank, loading: apiLoading } = useFishApi();
   const [speciesQuery, setSpeciesQuery] = useState('');
-  const [selectedTank, setSelectedTank] = useState<string | null>(null);
+  const [selectedFish, setSelectedFish] = useState<FishSpecies | null>(null);
+  const [fishSuggestions, setFishSuggestions] = useState<FishSpecies[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [selectedTank, setSelectedTank] = useState<string | null>(defaultTankId || null);
   const [schoolSize, setSchoolSize] = useState('');
-  const [analysis, setAnalysis] = useState<Analysis | null>(null);
-  const [compatibilityVisible, setCompatibilityVisible] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [addingFish, setAddingFish] = useState(false);
 
-  const handlePickImage = async () => {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
-      Alert.alert('Permission needed', 'Please allow access to your photos to choose an image.');
+  // Get current user
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setCurrentUserId(user?.uid ?? null);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Search fish whenever the user types, so suggestions update with each letter.
+  useEffect(() => {
+    const trimmedQuery = speciesQuery.trim();
+
+    if (!trimmedQuery) {
+      setFishSuggestions([]);
+      setShowSuggestions(false);
       return;
     }
 
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 0.7,
-    });
+    const searchAsync = async () => {
+      try {
+        const results = await searchFish(trimmedQuery);
+        const nextResults = Array.isArray(results) ? results : [];
+        setFishSuggestions(nextResults);
+        setShowSuggestions(nextResults.length > 0);
+      } catch (error) {
+        console.error('Search error:', error);
+        setFishSuggestions([]);
+        setShowSuggestions(false);
+      }
+    };
 
-    if (!result.canceled && result.assets?.length) {
-      setImageUri(result.assets[0].uri);
-    }
+    searchAsync();
+  }, [speciesQuery, searchFish]);
+
+  const handleSelectFish = (fish: FishSpecies) => {
+    setSelectedFish(fish);
+    setSpeciesQuery(fish.name);
+    setShowSuggestions(false);
+    setFishSuggestions([]);
   };
 
-  const handleSwipeComplete = () => {
-    const recommendation = schoolSize.trim() || 'the reported school size';
-    setAnalysis({
-      title: 'AI Compatibility check says this fish is not a good fit yet',
-      details:
-        `The selected tank may be too small for ${recommendation}. ` +
-        'This species can become territorial with the current fish in your setup, so adding it now would be risky.',
-      success: false,
-      unlock: false,
-    });
-    setCompatibilityVisible(true);
-  };
-
-  const handleAdd = () => {
-    if (!analysis?.unlock) {
-      return;
-    }
-
-    Alert.alert('Mock add', 'This is a mock add flow. No fish was actually saved.');
-    setImageUri(null);
+  const handleClearSelection = () => {
+    setSelectedFish(null);
     setSpeciesQuery('');
-    setSelectedTank(null);
     setSchoolSize('');
-    setAnalysis(null);
-    setCompatibilityVisible(false);
-    onClose();
+    setFishSuggestions([]);
+    setShowSuggestions(false);
+  };
+
+  const handleAdd = async () => {
+    if (!selectedFish || !selectedTank || !currentUserId) {
+      Alert.alert('Missing information', 'Please select a fish, tank, and ensure you are logged in.');
+      return;
+    }
+
+    if (!schoolSize.trim()) {
+      Alert.alert('Missing school size', 'Please enter the school size for this fish.');
+      return;
+    }
+
+    try {
+      setAddingFish(true);
+      await addFishToTank(currentUserId, selectedTank, selectedFish.id, schoolSize, {
+        name: selectedFish.name,
+        scientificName: selectedFish.scientificName,
+        image: selectedFish.image,
+      });
+
+      Alert.alert('Success', `${selectedFish.name} has been added to your tank!`);
+      
+      // Reset form
+      setSelectedFish(null);
+      setSpeciesQuery('');
+      setSelectedTank(defaultTankId || null);
+      setSchoolSize('');
+      setFishSuggestions([]);
+      
+      onClose();
+    } catch (error) {
+      Alert.alert('Error', error instanceof Error ? error.message : 'Failed to add fish.');
+    } finally {
+      setAddingFish(false);
+    }
   };
 
   return (
@@ -81,36 +119,79 @@ export default function AddFishModal({ visible, onClose }: Props) {
         <TouchableOpacity style={styles.backdropTouchable} activeOpacity={1} onPress={onClose} />
         <View style={styles.modalCard}>
           <ScrollView contentContainerStyle={styles.content}>
-<View style={styles.headerRow}>
-            <View>
-              <Text style={styles.title}>Add new fish</Text>
-              <Text style={styles.subtitle}>Choose an image, search a species, and assign a tank.</Text>
+            <View style={styles.headerRow}>
+              <View>
+                <Text style={styles.title}>Add new fish</Text>
+                <Text style={styles.subtitle}>Search a species, and assign to your tank.</Text>
+              </View>
+              <TouchableOpacity style={styles.closeIconButton} onPress={onClose} activeOpacity={0.8}>
+                <Text style={styles.closeIcon}>✕</Text>
+              </TouchableOpacity>
             </View>
-            <TouchableOpacity style={styles.closeIconButton} onPress={onClose} activeOpacity={0.8}>
-              <Text style={styles.closeIcon}>✕</Text>
-            </TouchableOpacity>
-          </View>
 
-            <TouchableOpacity style={styles.imagePicker} onPress={handlePickImage} activeOpacity={0.8}>
-              {imageUri ? (
-                <Image source={{ uri: imageUri }} style={styles.photoPreview} resizeMode="cover" />
-              ) : (
-                <Text style={styles.imageText}>Pick an image</Text>
-              )}
-            </TouchableOpacity>
+            {/* Fish Image Preview */}
+            {selectedFish ? (
+              <View style={styles.imageContainer}>
+                <Image source={{ uri: selectedFish.image }} style={styles.photoPreview} resizeMode="cover" />
+                <TouchableOpacity style={styles.clearButton} onPress={handleClearSelection}>
+                  <Text style={styles.clearButtonText}>✕</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <View style={styles.imageEmpty}>
+                <Text style={styles.imageEmptyText}>Select a fish to see image</Text>
+              </View>
+            )}
 
+            {/* Species Search */}
             <View style={styles.field}>
-              <Text style={styles.fieldLabel}>Species</Text>
+              <Text style={styles.fieldLabel}>Species Name</Text>
               <TextInput
                 value={speciesQuery}
-                onChangeText={setSpeciesQuery}
-                placeholder="Search species"
+                onChangeText={(text) => {
+                  setSpeciesQuery(text);
+                  if (selectedFish && text.trim() !== selectedFish.name.trim()) {
+                    setSelectedFish(null);
+                  }
+                }}
+                placeholder="Search for a fish (e.g., Guppy, Neon Tetra)"
                 placeholderTextColor="#6E7684"
                 style={styles.input}
               />
-              <Text style={styles.helperText}>No species data available yet, so this acts as a mock search field.</Text>
+              <Text style={styles.helperText}>Start typing to search fish species from FishBase.</Text>
+
+              {/* Fish Suggestions */}
+              {showSuggestions && fishSuggestions.length > 0 && (
+                <View style={styles.suggestionsContainer}>
+                  {fishSuggestions.map((fish) => (
+                    <TouchableOpacity
+                      key={fish.id}
+                      style={styles.suggestionItem}
+                      onPress={() => handleSelectFish(fish)}
+                    >
+                      {fish.image ? (
+                        <Image source={{ uri: fish.image }} style={styles.suggestionImage} />
+                      ) : (
+                        <View style={styles.suggestionImagePlaceholder}>
+                          <Text style={styles.suggestionImagePlaceholderText}>🐟</Text>
+                        </View>
+                      )}
+                      <View style={styles.suggestionContent}>
+                        <Text style={styles.suggestionName}>{fish.name}</Text>
+                        <Text style={styles.suggestionScientific}>{fish.scientificName}</Text>
+                        <Text style={styles.suggestionSchool}>School: {fish.schoolSize}</Text>
+                      </View>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+
+              {speciesQuery.trim().length > 0 && !apiLoading && showSuggestions && fishSuggestions.length === 0 && (
+                <Text style={styles.noResultsText}>No fish found for that search.</Text>
+              )}
             </View>
 
+            {/* Tank Selection */}
             <View style={styles.field}>
               <Text style={styles.fieldLabel}>Tank</Text>
               <View style={styles.tankRow}>
@@ -121,35 +202,41 @@ export default function AddFishModal({ visible, onClose }: Props) {
                     onPress={() => setSelectedTank(tank.id)}
                     activeOpacity={0.8}
                   >
-                    <Text style={[styles.tankLabel, selectedTank === tank.id && styles.tankLabelActive]}>{tank.label}</Text>
+                    <Text style={[styles.tankLabel, selectedTank === tank.id && styles.tankLabelActive]}>
+                      {tank.label}
+                    </Text>
                   </TouchableOpacity>
                 ))}
               </View>
             </View>
 
-            <View style={styles.field}>
-              <Text style={styles.fieldLabel}>School size</Text>
-              <TextInput
-                value={schoolSize}
-                onChangeText={setSchoolSize}
-                placeholder="Example: 6+ recommended"
-                placeholderTextColor="#6E7684"
-                style={styles.input}
-              />
-            </View>
+            {/* School Size */}
+            {selectedFish && (
+              <View style={styles.field}>
+                <Text style={styles.fieldLabel}>School Size</Text>
+                <TextInput
+                  value={schoolSize}
+                  onChangeText={setSchoolSize}
+                  placeholder="Example: 6+ recommended"
+                  placeholderTextColor="#6E7684"
+                  style={styles.input}
+                />
+              </View>
+            )}
 
-            <View style={styles.divider} />
-            <Text style={styles.sectionLabel}>Compatibility</Text>
-            <SwipeCheckButton label="Swipe to check" onSwipe={handleSwipeComplete} />
+            {/* Add action */}
+            {selectedFish && (
+              <>
+                <View style={styles.divider} />
+                <SwipeCheckButton
+                  label="Swipe to add fish"
+                  onSwipe={handleAdd}
+                  disabled={apiLoading || addingFish || !schoolSize.trim()}
+                />
+              </>
+            )}
           </ScrollView>
         </View>
-        <CompatibilityResultModal
-          visible={compatibilityVisible}
-          analysis={analysis}
-          typeLabel="fish"
-          onClose={() => setCompatibilityVisible(false)}
-          onSwipeToAdd={handleAdd}
-        />
       </View>
     </Modal>
   );
@@ -323,5 +410,102 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '700',
+  },
+  imageContainer: {
+    position: 'relative',
+    height: 180,
+    borderRadius: 20,
+    overflow: 'hidden',
+    marginBottom: 18,
+  },
+  imageEmpty: {
+    height: 180,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: '#1B1F28',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 18,
+  },
+  imageEmptyText: {
+    color: '#7B869E',
+    fontSize: 14,
+  },
+  clearButton: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  clearButtonText: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  noResultsText: {
+    marginTop: 8,
+    color: '#8F97A6',
+    fontSize: 12,
+  },
+  suggestionsContainer: {
+    marginTop: 12,
+    borderRadius: 16,
+    backgroundColor: '#1B1F28',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    overflow: 'hidden',
+    maxHeight: 5 * 44,
+  },
+  suggestionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.05)',
+  },
+  suggestionImage: {
+    width: 20,
+    height: 20,
+    borderRadius: 4,
+    marginRight: 10,
+    backgroundColor: '#14151B',
+  },
+  suggestionImagePlaceholder: {
+    width: 20,
+    height: 20,
+    borderRadius: 4,
+    marginRight: 10,
+    backgroundColor: '#14151B',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  suggestionImagePlaceholderText: {
+    fontSize: 12,
+  },
+  suggestionContent: {
+    flex: 1,
+  },
+  suggestionName: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '600',
+    marginBottom: 1,
+  },
+  suggestionScientific: {
+    color: '#8F97A6',
+    fontSize: 10,
+    fontStyle: 'italic',
+    marginBottom: 1,
+  },
+  suggestionSchool: {
+    color: '#7B869E',
+    fontSize: 10,
   },
 });
