@@ -3,23 +3,25 @@ import { View, Text, StyleSheet, Image } from 'react-native';
 import ConditionTile from './ConditionTile';
 
 type Conditions = {
-  preferredTempC: number;
-  waterQuality: string;
-  ph: string | number;
-  lastTestedDaysAgo: number;
+  preferredTempC?: number | string;
+  waterQuality?: string;
+  ph?: string | number;
+  lastTestedDaysAgo?: number;
+  ammoniaPpm?: string | number;
+  nitritePpm?: string | number;
 };
 
 type Props = {
-  conditions: Conditions;
+  conditions?: Conditions;
 };
 
 export default function NeedToKnow({ conditions }: Props) {
-  const { preferredTempC, ph, lastTestedDaysAgo, ammoniaPpm, nitritePpm } = conditions as any;
+  const { preferredTempC, ph, lastTestedDaysAgo, ammoniaPpm, nitritePpm } = conditions || {} as any;
 
   const tankSize = 'Min. 10L';
   const waterChangeInterval = 'Weekly';
-  const bioload = (parseFloat(ammoniaPpm) > 0 || parseFloat(nitritePpm) > 0) ? 'Medium' : 'Low';
-  const nextWaterChange = lastTestedDaysAgo > 6 ? 'Due' : `${7 - lastTestedDaysAgo}d`;
+  const bioload = (parseFloat(ammoniaPpm as any) > 0 || parseFloat(nitritePpm as any) > 0) ? 'Medium' : 'Low';
+  const nextWaterChange = lastTestedDaysAgo && lastTestedDaysAgo > 6 ? 'Due' : lastTestedDaysAgo !== undefined ? `${7 - lastTestedDaysAgo}d` : 'N/A';
 
   return (
     <>
@@ -29,7 +31,7 @@ export default function NeedToKnow({ conditions }: Props) {
       <View style={localStyles.conditionsGrid}>
         <ConditionTile
           label="Tank Temp"
-          value={preferredTempC}
+          value={preferredTempC ? String(preferredTempC) : undefined}
           tileHeight={200}
           imageSize={80}
           imageSource={require('../../assets/icons/temp.png')}
@@ -37,7 +39,7 @@ export default function NeedToKnow({ conditions }: Props) {
 
         <ConditionTile
           label="pH Level"
-          value={ph}
+          value={ph ? String(ph) : undefined}
           tileHeight={200}
           imageSize={80}
           imageSource={require('../../assets/icons/PH.png')}

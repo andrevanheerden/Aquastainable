@@ -1,5 +1,5 @@
 // app/(tabs)/tank.tsx
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Dimensions,
   FlatList,
@@ -15,6 +15,7 @@ import {
   View,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { onAuthStateChanged } from 'firebase/auth';
 
 import HeaderRow from '@/components/tank/HeaderRow';
 import OverviewSection from '@/components/tank/OverviewSection';
@@ -22,7 +23,9 @@ import NeedToKnow from '@/components/tank/NeedToKnow';
 import FishPlants from '@/components/tank/FishPlants';
 import WaterTestCard from '@/components/tank/WaterTestCard';
 import Colors from '../colors';
-import { getTankDetail, Species } from '../data/tankDetails';
+import { getTankDetail, Species, TankDetail } from '../data/tankDetails';
+import { useTankApi } from '../hooks/useTankApi';
+import { auth } from '@/firebase';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const CARD_GAP = 16;
@@ -32,7 +35,7 @@ const TILE_GAP = 16;
 const TILE_WIDTH = (SCREEN_WIDTH - 40 - TILE_GAP) / 2;
 const TILE_HEIGHT = 250;
 
-const TANK_IMAGES = {
+const TANK_IMAGES: Record<string, any> = {
   '1': require('../../assets/fishTank/FishTankForest.jpeg'),
   '2': require('../../assets/fishTank/FishTankLiveingRoom.jpeg'),
   '3': require('../../assets/fishTank/FishTankTree.jpeg'),
@@ -53,13 +56,85 @@ function getSpeciesImage(speciesId: string, index: number) {
 export default function TankInfoScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const tank = getTankDetail(id ?? '');
+  const { getTankById } = useTankApi();
+  
+  const [tank, setTank] = useState<TankDetail | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const speciesListRef = useRef<FlatList<Species>>(null);
+
+  // Get current user
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setCurrentUserId(user?.uid ?? null);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Fetch tank data from API or mock data
+  useEffect(() => {
+    const loadTank = async () => {
+      setLoading(true);
+      
+      if (!id) {
+        setLoading(false);
+        return;
+      }
+
+      // First, try mock data for IDs 1, 2, 3
+      const mockTank = getTankDetail(id);
+      if (mockTank) {
+        setTank(mockTank);
+        setLoading(false);
+        return;
+      }
+
+      // If not mock data, try to fetch from API
+      if (currentUserId) {
+        try {
+          const apiTank = await getTankById(currentUserId, id);
+          if (apiTank) {
+            // Convert API tank format to TankDetail format
+            const convertedTank: TankDetail = {
+              tankId: apiTank.tankId || apiTank.id,
+              tankName: apiTank.tankName,
+              overviewSummary: apiTank.overview || '',
+              conditions: {
+                preferredTempC: '',
+                waterQuality: 'Good',
+                lastTestedDaysAgo: 7,
+                ph: '',
+                ammoniaPpm: '',
+                nitritePpm: '',
+              },
+              species: [],
+              careTips: [],
+            };
+            setTank(convertedTank);
+          }
+        } catch (error) {
+          console.error('Error fetching tank:', error);
+        }
+      }
+      
+      setLoading(false);
+    };
+
+    loadTank();
+  }, [id, currentUserId, getTankById]);
 
   const [favorites, setFavorites] = useState<Set<string>>(
     () => new Set((tank?.species ?? []).filter((s) => s.favorite).map((s) => s.id))
   );
-  const [activeIndex, setActiveIndex] = useState(0);
-  const speciesListRef = useRef<FlatList<Species>>(null);
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.missingContainer}>
+        <Text style={styles.missingText}>Loading tank...</Text>
+      </SafeAreaView>
+    );
+  }
 
   if (!tank) {
     return (
@@ -212,7 +287,7 @@ const styles = StyleSheet.create({
   },
   headerRow: {
     flexDirection: 'row',
-    justify: 'space-between',
+    justifyContent: 'space-between',
     alignItems: 'center',
     marginTop: 8,
     marginBottom: 24,
@@ -324,7 +399,7 @@ const styles = StyleSheet.create({
   // Dots
   dotsRow: {
     flexDirection: 'row',
-    justify: 'center',
+    justifyContent: 'center',
     marginTop: 16,
   },
   dot: {

@@ -68,6 +68,12 @@ export default function TabLayout() {
             href: null,
           }}
         />
+        <Tabs.Screen
+          name="tank"
+          options={{
+            href: null,
+          }}
+        />
       </Tabs>
     </GestureDrawer>
   );

@@ -310,7 +310,7 @@ export default function HomeScreen() {
             </View>
 
             {tanks.length > 0 && (
-              <SwipeButton onSwipe={() => router.push(`/tank/${aquarium.tankId || aquarium.id}`)} />
+              <SwipeButton onSwipe={() => router.push({ pathname: '/(tabs)/tank', params: { id: String(aquarium.tankId || aquarium.id) } })} />
             )}
           </View>
         </SafeAreaView>
