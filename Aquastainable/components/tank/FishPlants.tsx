@@ -5,7 +5,7 @@ import SpeciesCard from './SpeciesCard';
 type Props = {
   species: any[];
   speciesListRef: any;
-  getSpeciesImage: (speciesId: string, index: number) => string;
+  getSpeciesImage: (speciesId: string, index: number) => string | number;
   favorites: Set<string>;
   toggleFavorite: (id: string) => void;
   cardWidth: number;
@@ -15,6 +15,15 @@ type Props = {
 };
 
 export default function FishPlants({ species, speciesListRef, getSpeciesImage, favorites, toggleFavorite, cardWidth, cardStride, onSpeciesScrollEnd, onSpeciesPress }: Props) {
+  if (!species || species.length === 0) {
+    return (
+      <>
+        <Text style={localStyles.sectionTitle}>Fish & plants</Text>
+        <Text style={localStyles.emptyStateText}>No species in tank</Text>
+      </>
+    );
+  }
+
   return (
     <>
       <Text style={localStyles.sectionTitle}>Fish & plants</Text>
@@ -52,5 +61,12 @@ const localStyles = StyleSheet.create({
     fontWeight: '700',
     marginTop: 24,
     marginBottom: 12,
+  },
+  emptyStateText: {
+    color: '#8E8E93',
+    fontSize: 16,
+    marginTop: 12,
+    marginBottom: 24,
+    fontStyle: 'italic',
   },
 });

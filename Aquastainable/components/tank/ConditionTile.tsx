@@ -4,7 +4,7 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 
 type Props = {
   label: string;
-  value: string;
+  value?: string;
   iconName?: string;
   accentColor?: string;
   imageSource?: any;
@@ -24,6 +24,7 @@ export default function ConditionTile({
   valueOnTop = false,
 }: Props) {
   const resolvedImageSize = imageSize ?? 80;
+  const displayValue = value && value.trim() ? value : 'N/A';
 
   const tileStyle = [
     localStyles.conditionTile,
@@ -48,7 +49,7 @@ export default function ConditionTile({
           ) : null}
 
           <View style={localStyles.valueColumn}>
-            <Text style={localStyles.conditionTileValueTop}>{value}</Text>
+            <Text style={localStyles.conditionTileValueTop}>{displayValue}</Text>
             <Text style={localStyles.conditionTileLabelBelow}>{label}</Text>
           </View>
         </View>
@@ -72,7 +73,7 @@ export default function ConditionTile({
         )}
       </View>
 
-      <Text style={localStyles.conditionTileValueBelow}>{value}</Text>
+      <Text style={localStyles.conditionTileValueBelow}>{displayValue}</Text>
     </View>
   );
 }

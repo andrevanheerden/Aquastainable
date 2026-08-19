@@ -2,14 +2,16 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 
 type Props = {
-  overview: string;
+  overview?: string;
 };
 
 export default function OverviewSection({ overview }: Props) {
   return (
     <>
       <Text style={localStyles.sectionTitle}>Overview</Text>
-      <Text style={localStyles.overviewText}>{overview}</Text>
+      <Text style={localStyles.overviewText}>
+        {overview && overview.trim() ? overview : 'No overview yet'}
+      </Text>
     </>
   );
 }

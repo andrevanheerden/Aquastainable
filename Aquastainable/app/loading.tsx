@@ -1,19 +1,4 @@
-// LoadingScreen.tsx
-// Total redesign — just a circle filling with water as the percentage loads,
-// matching the reference gif: no visible outline, the unfilled part of the
-// circle simply blends into the black background, so it reads as a rising
-// dome that becomes a full circle at 100%. Built from your teal palette
-// instead of a generic blue.
-//
-// Needs: react-native-svg
-//   npm install react-native-svg
-//   (bare RN: cd ios && pod install)
-//
-// Usage (controlled, tied to a real upload/fetch progress):
-//   <LoadingScreen progress={uploadProgress} />
-//
-// Usage (uncontrolled demo — animates 0 to 100 on its own):
-//   <LoadingScreen />
+
 
 import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
@@ -22,9 +7,9 @@ import Svg, { Path, Rect, G, Defs, ClipPath, Circle } from 'react-native-svg';
 import Colors from './colors';
 
 type Props = {
-  progress?: number; // 0-100, pass this if you want to control it externally
-  label?: string; // optional — omitted by default, to match the reference exactly
-  duration?: number; // only used in uncontrolled/demo mode
+  progress?: number; 
+  label?: string; 
+  duration?: number; 
 };
 
 const SIZE = 260;
