@@ -1,7 +1,7 @@
 # Aquastainable
 
 <p align="center">
-   <img src="assets/logo/logo-text.png" alt="Aquastainable" width="420" />
+   <img src="./Aquastainable/assets/logo/logo-text.png" alt="Aquastainable" width="420" />
 </p>
 
 <p align="center">
