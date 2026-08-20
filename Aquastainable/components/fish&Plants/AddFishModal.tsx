@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Alert, Image, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { onAuthStateChanged } from 'firebase/auth';
 import SwipeCheckButton from './SwipeCheckButton';
 import { useFishApi, FishSpecies } from '../../app/hooks/useFishApi';
@@ -24,6 +24,8 @@ export default function AddFishModal({ visible, onClose, tankId: defaultTankId }
   const [fishSuggestions, setFishSuggestions] = useState<FishSpecies[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [searchError, setSearchError] = useState('');
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [imageLoading, setImageLoading] = useState(false);
   const [selectedTank, setSelectedTank] = useState<string | null>(defaultTankId || null);
   const [schoolSize, setSchoolSize] = useState('');
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -45,10 +47,12 @@ export default function AddFishModal({ visible, onClose, tankId: defaultTankId }
       setFishSuggestions([]);
       setShowSuggestions(false);
       setSearchError('');
+      setSearchLoading(false);
       return;
     }
 
     const searchAsync = async () => {
+      setSearchLoading(true);
       try {
         const results = await searchFish(trimmedQuery);
         const nextResults = Array.isArray(results) ? results : [];
@@ -60,6 +64,8 @@ export default function AddFishModal({ visible, onClose, tankId: defaultTankId }
         setFishSuggestions([]);
         setShowSuggestions(false);
         setSearchError(error instanceof Error ? error.message : 'Fish species search is unavailable.');
+      } finally {
+        setSearchLoading(false);
       }
     };
 
@@ -69,6 +75,7 @@ export default function AddFishModal({ visible, onClose, tankId: defaultTankId }
   const handleSelectFish = (fish: FishSpecies) => {
     setSelectedFish(fish);
     setSpeciesQuery(fish.FBname || fish.name);
+    setImageLoading(Boolean(fish.image));
     setShowSuggestions(false);
     setFishSuggestions([]);
   };
@@ -79,6 +86,7 @@ export default function AddFishModal({ visible, onClose, tankId: defaultTankId }
     setSchoolSize('');
     setFishSuggestions([]);
     setShowSuggestions(false);
+    setImageLoading(false);
   };
 
   const handleAdd = async () => {
@@ -99,6 +107,9 @@ export default function AddFishModal({ visible, onClose, tankId: defaultTankId }
         scientificName: selectedFish.scientificName,
         imageName: selectedFish.imageName,
         image: selectedFish.image,
+        imageSourceUrl: selectedFish.imageSourceUrl,
+        imageLicense: selectedFish.imageLicense,
+        source: selectedFish.source,
       });
 
       Alert.alert('Success', `${selectedFish.name} has been added to your tank!`);
@@ -137,7 +148,25 @@ export default function AddFishModal({ visible, onClose, tankId: defaultTankId }
             {/* Fish Image Preview */}
             {selectedFish ? (
               <View style={styles.imageContainer}>
-                <Image source={{ uri: selectedFish.image }} style={styles.photoPreview} resizeMode="cover" />
+                {selectedFish.image ? (
+                  <Image
+                    source={{ uri: selectedFish.image }}
+                    style={styles.photoPreview}
+                    resizeMode="cover"
+                    onLoadStart={() => setImageLoading(true)}
+                    onLoadEnd={() => setImageLoading(false)}
+                  />
+                ) : (
+                  <View style={styles.imageEmpty}>
+                    <Text style={styles.imageEmptyText}>No image available</Text>
+                  </View>
+                )}
+                {imageLoading ? (
+                  <View style={styles.imageLoadingOverlay}>
+                    <ActivityIndicator size="large" color="#FFFFFF" />
+                    <Text style={styles.imageLoadingText}>Loading image...</Text>
+                  </View>
+                ) : null}
                 <TouchableOpacity style={styles.clearButton} onPress={handleClearSelection}>
                   <Text style={styles.clearButtonText}>✕</Text>
                 </TouchableOpacity>
@@ -157,6 +186,7 @@ export default function AddFishModal({ visible, onClose, tankId: defaultTankId }
                   setSpeciesQuery(text);
                   if (selectedFish && text.trim() !== selectedFish.name.trim()) {
                     setSelectedFish(null);
+                    setImageLoading(false);
                   }
                 }}
                 placeholder="Search for a fish (e.g., Guppy, Neon Tetra)"
@@ -164,6 +194,12 @@ export default function AddFishModal({ visible, onClose, tankId: defaultTankId }
                 style={styles.input}
               />
               <Text style={styles.helperText}>Start typing to search freshwater aquarium fish species.</Text>
+              {searchLoading ? (
+                <View style={styles.searchLoadingRow}>
+                  <ActivityIndicator size="small" color="#5B8CFF" />
+                  <Text style={styles.searchLoadingText}>Searching fish species...</Text>
+                </View>
+              ) : null}
 
               {/* Fish Suggestions */}
               {showSuggestions && fishSuggestions.length > 0 && (
@@ -187,7 +223,7 @@ export default function AddFishModal({ visible, onClose, tankId: defaultTankId }
                 </View>
               )}
 
-              {speciesQuery.trim().length > 0 && !apiLoading && fishSuggestions.length === 0 && (
+              {speciesQuery.trim().length > 0 && !searchLoading && !apiLoading && fishSuggestions.length === 0 && (
                 <Text style={styles.noResultsText}>{searchError || 'No fish found for that search.'}</Text>
               )}
             </View>
@@ -339,6 +375,16 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 16,
   },
+  searchLoadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 8,
+  },
+  searchLoadingText: {
+    color: '#AEB7C8',
+    fontSize: 12,
+  },
   tankRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -432,6 +478,18 @@ const styles = StyleSheet.create({
   imageEmptyText: {
     color: '#7B869E',
     fontSize: 14,
+  },
+  imageLoadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(12, 15, 23, 0.58)',
+    gap: 8,
+  },
+  imageLoadingText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
   },
   clearButton: {
     position: 'absolute',

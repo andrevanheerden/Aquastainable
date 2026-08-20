@@ -10,6 +10,9 @@ export type FishSpecies = {
   scientificName: string;
   imageName?: string;
   image: string;
+  imageSourceUrl?: string;
+  imageLicense?: string;
+  source?: string;
   schoolSize: string;
   tempC: string;
   pH: string;
@@ -63,7 +66,7 @@ export function useFishApi() {
   );
 
   const addFishToTank = useCallback(
-    async (userId: string, tankId: string, fishId: string, schoolSize: string, fishData?: { name?: string; scientificName?: string; imageName?: string; image?: string }) => {
+    async (userId: string, tankId: string, fishId: string, schoolSize: string, fishData?: { name?: string; scientificName?: string; imageName?: string; image?: string; imageSourceUrl?: string; imageLicense?: string; source?: string }) => {
       return requestApi<TankFish>('post', '/fish/add', {
         userId,
         tankId,
@@ -73,6 +76,9 @@ export function useFishApi() {
         scientificName: fishData?.scientificName,
         imageName: fishData?.imageName,
         image: fishData?.image,
+        imageSourceUrl: fishData?.imageSourceUrl,
+        imageLicense: fishData?.imageLicense,
+        source: fishData?.source,
       });
     },
     [requestApi]

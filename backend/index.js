@@ -7,9 +7,11 @@ const cloudinary = require('cloudinary').v2;
 const { randomUUID } = require('crypto');
 const { getAuth } = require('firebase-admin/auth');
 const { getFirestore, FieldValue } = require('firebase-admin/firestore');
-const createFishRouter = require('./fish/routes');
 
 dotenv.config();
+
+const createFishRouter = require('./fish/routes');
+const createAiRouter = require('./ai/routes');
 
 const app = express();
 app.use(cors());
@@ -38,6 +40,7 @@ const db = FIREBASE_PROJECT_ID && FIREBASE_CLIENT_EMAIL && FIREBASE_PRIVATE_KEY 
 const auth = FIREBASE_PROJECT_ID && FIREBASE_CLIENT_EMAIL && FIREBASE_PRIVATE_KEY && FIREBASE_API_KEY ? getAuth() : null;
 
 app.use('/fish', createFishRouter({ db }));
+app.use('/ai', createAiRouter());
 
 async function uploadTankImageToCloudinary(tankImg) {
   if (!tankImg) {
