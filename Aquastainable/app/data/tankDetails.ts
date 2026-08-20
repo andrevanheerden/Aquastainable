@@ -193,3 +193,5 @@ const TANK_DETAILS: Record<string, TankDetail> = {
 export function getTankDetail(tankId: string): TankDetail | undefined {
   return TANK_DETAILS[tankId];
 }
+
+export default TANK_DETAILS;

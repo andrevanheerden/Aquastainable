@@ -5,3 +5,5 @@ export interface ThemeColors {
   top: string;
   bottom: string;
 }
+
+export default {};

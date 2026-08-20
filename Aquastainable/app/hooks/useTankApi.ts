@@ -72,3 +72,5 @@ export function useTankApi() {
 
   return { loading, error, clearError, createTank, getUserTanks, getTankById };
 }
+
+export default useTankApi;

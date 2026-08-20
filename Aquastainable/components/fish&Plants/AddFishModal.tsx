@@ -23,6 +23,7 @@ export default function AddFishModal({ visible, onClose, tankId: defaultTankId }
   const [selectedFish, setSelectedFish] = useState<FishSpecies | null>(null);
   const [fishSuggestions, setFishSuggestions] = useState<FishSpecies[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [searchError, setSearchError] = useState('');
   const [selectedTank, setSelectedTank] = useState<string | null>(defaultTankId || null);
   const [schoolSize, setSchoolSize] = useState('');
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -43,6 +44,7 @@ export default function AddFishModal({ visible, onClose, tankId: defaultTankId }
     if (!trimmedQuery) {
       setFishSuggestions([]);
       setShowSuggestions(false);
+      setSearchError('');
       return;
     }
 
@@ -52,10 +54,12 @@ export default function AddFishModal({ visible, onClose, tankId: defaultTankId }
         const nextResults = Array.isArray(results) ? results : [];
         setFishSuggestions(nextResults);
         setShowSuggestions(nextResults.length > 0);
+        setSearchError('');
       } catch (error) {
         console.error('Search error:', error);
         setFishSuggestions([]);
         setShowSuggestions(false);
+        setSearchError(error instanceof Error ? error.message : 'Fish species search is unavailable.');
       }
     };
 
@@ -64,7 +68,7 @@ export default function AddFishModal({ visible, onClose, tankId: defaultTankId }
 
   const handleSelectFish = (fish: FishSpecies) => {
     setSelectedFish(fish);
-    setSpeciesQuery(fish.name);
+    setSpeciesQuery(fish.FBname || fish.name);
     setShowSuggestions(false);
     setFishSuggestions([]);
   };
@@ -93,6 +97,7 @@ export default function AddFishModal({ visible, onClose, tankId: defaultTankId }
       await addFishToTank(currentUserId, selectedTank, selectedFish.id, schoolSize, {
         name: selectedFish.name,
         scientificName: selectedFish.scientificName,
+        imageName: selectedFish.imageName,
         image: selectedFish.image,
       });
 
@@ -158,7 +163,7 @@ export default function AddFishModal({ visible, onClose, tankId: defaultTankId }
                 placeholderTextColor="#6E7684"
                 style={styles.input}
               />
-              <Text style={styles.helperText}>Start typing to search fish species from FishBase.</Text>
+              <Text style={styles.helperText}>Start typing to search freshwater aquarium fish species.</Text>
 
               {/* Fish Suggestions */}
               {showSuggestions && fishSuggestions.length > 0 && (
@@ -171,23 +176,19 @@ export default function AddFishModal({ visible, onClose, tankId: defaultTankId }
                     >
                       {fish.image ? (
                         <Image source={{ uri: fish.image }} style={styles.suggestionImage} />
-                      ) : (
-                        <View style={styles.suggestionImagePlaceholder}>
-                          <Text style={styles.suggestionImagePlaceholderText}>🐟</Text>
-                        </View>
-                      )}
+                      ) : null}
                       <View style={styles.suggestionContent}>
-                        <Text style={styles.suggestionName}>{fish.name}</Text>
-                        <Text style={styles.suggestionScientific}>{fish.scientificName}</Text>
-                        <Text style={styles.suggestionSchool}>School: {fish.schoolSize}</Text>
+                        <Text style={styles.suggestionName}>{fish.FBname || fish.name}</Text>
+                        {fish.scientificName ? <Text style={styles.suggestionScientific}>{fish.scientificName}</Text> : null}
+                        {fish.schoolSize ? <Text style={styles.suggestionSchool}>School: {fish.schoolSize}</Text> : null}
                       </View>
                     </TouchableOpacity>
                   ))}
                 </View>
               )}
 
-              {speciesQuery.trim().length > 0 && !apiLoading && showSuggestions && fishSuggestions.length === 0 && (
-                <Text style={styles.noResultsText}>No fish found for that search.</Text>
+              {speciesQuery.trim().length > 0 && !apiLoading && fishSuggestions.length === 0 && (
+                <Text style={styles.noResultsText}>{searchError || 'No fish found for that search.'}</Text>
               )}
             </View>
 
@@ -276,7 +277,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#1B1D26',
     alignItems: 'center',
     justifyContent: 'center',
-    right: 40,
+    right: 0,
     top: -10,
   },
   closeIcon: {
@@ -476,18 +477,6 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     marginRight: 10,
     backgroundColor: '#14151B',
-  },
-  suggestionImagePlaceholder: {
-    width: 20,
-    height: 20,
-    borderRadius: 4,
-    marginRight: 10,
-    backgroundColor: '#14151B',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  suggestionImagePlaceholderText: {
-    fontSize: 12,
   },
   suggestionContent: {
     flex: 1,

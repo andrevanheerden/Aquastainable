@@ -6,7 +6,9 @@ const API_BASE_URL = 'http://localhost:4000';
 export type FishSpecies = {
   id: string;
   name: string;
+  FBname: string;
   scientificName: string;
+  imageName?: string;
   image: string;
   schoolSize: string;
   tempC: string;
@@ -61,7 +63,7 @@ export function useFishApi() {
   );
 
   const addFishToTank = useCallback(
-    async (userId: string, tankId: string, fishId: string, schoolSize: string, fishData?: { name?: string; scientificName?: string; image?: string }) => {
+    async (userId: string, tankId: string, fishId: string, schoolSize: string, fishData?: { name?: string; scientificName?: string; imageName?: string; image?: string }) => {
       return requestApi<TankFish>('post', '/fish/add', {
         userId,
         tankId,
@@ -69,6 +71,7 @@ export function useFishApi() {
         schoolSize,
         name: fishData?.name,
         scientificName: fishData?.scientificName,
+        imageName: fishData?.imageName,
         image: fishData?.image,
       });
     },
@@ -90,3 +93,5 @@ export function useFishApi() {
 
   return { loading, error, clearError, searchFish, addFishToTank, getTankFish, removeFishFromTank };
 }
+
+export default useFishApi;

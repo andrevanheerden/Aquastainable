@@ -63,7 +63,7 @@ export default function SignUpScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <Image source={heroImage} style={[styles.backgroundImage, keyboardVisible && styles.hiddenBackground]} />
+      <Image source={heroImage} style={[styles.backgroundImage, keyboardVisible && styles.hiddenBackground]} resizeMode="cover" />
       <View style={[styles.overlay, keyboardVisible && styles.hiddenBackground]} />
 
       <View style={styles.content}>
@@ -148,7 +148,6 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     width: '100%',
     height: '34%',
-    resizeMode: 'cover',
   },
 
   content: {
