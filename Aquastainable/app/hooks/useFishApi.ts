@@ -25,6 +25,19 @@ export type TankFish = FishSpecies & {
   addedAt?: string;
 };
 
+export type FishCompatibilityAssessment = {
+  canAdd: boolean;
+  status: 'compatible' | 'incompatible' | 'needs_information';
+  title: string;
+  explanation: string;
+  optimalSchoolSize: string;
+  maximumSchoolSize: string;
+  selectedTankId: string;
+  selectedTankName: string;
+  suggestedTankId: string | null;
+  suggestedTankName: string;
+};
+
 export function useFishApi() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -85,6 +98,33 @@ export function useFishApi() {
     [requestApi]
   );
 
+  const assessFishAddition = useCallback(async (payload: {
+    userId: string;
+    tankId: string;
+    fishId: string;
+    schoolSize: string;
+    name?: string;
+    scientificName?: string;
+  }) => {
+    return requestApi<FishCompatibilityAssessment>('post', '/fish/assess-add', payload);
+  }, [requestApi]);
+
+  const addReviewedFish = useCallback(async (payload: {
+    userId: string;
+    tankId: string;
+    fishId: string;
+    schoolSize: string;
+    name?: string;
+    scientificName?: string;
+    imageName?: string;
+    image?: string;
+    imageSourceUrl?: string;
+    imageLicense?: string;
+    source?: string;
+  }) => {
+    return requestApi<TankFish & { assessment: FishCompatibilityAssessment }>('post', '/fish/add-reviewed', payload);
+  }, [requestApi]);
+
   const getTankFish = useCallback(async (tankId: string) => {
     return requestApi<TankFish[]>('get', `/fish/tank/${tankId}`);
   }, [requestApi]);
@@ -102,7 +142,7 @@ export function useFishApi() {
 
   const clearError = useCallback(() => setError(''), []);
 
-  return { loading, error, clearError, searchFish, addFishToTank, getTankFish, getUserFish, removeFishFromTank };
+  return { loading, error, clearError, searchFish, addFishToTank, assessFishAddition, addReviewedFish, getTankFish, getUserFish, removeFishFromTank };
 }
 
 export default useFishApi;

@@ -2,7 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { onAuthStateChanged } from 'firebase/auth';
 import SwipeCheckButton from './SwipeCheckButton';
+import CompatibilityResultModal from './CompatibilityResultModal';
 import { useFishApi, FishSpecies } from '../../app/hooks/useFishApi';
+import { FishCompatibilityAssessment } from '../../app/hooks/useFishApi';
 import { auth } from '@/firebase';
 import { useTankApi, TankRecord } from '../../app/hooks/useTankApi';
 
@@ -13,7 +15,7 @@ type Props = {
 };
 
 export default function AddFishModal({ visible, onClose, tankId: defaultTankId }: Props) {
-  const { searchFish, addFishToTank, loading: apiLoading } = useFishApi();
+  const { searchFish, assessFishAddition, addReviewedFish, loading: apiLoading } = useFishApi();
   const { getUserTanks } = useTankApi();
   const [speciesQuery, setSpeciesQuery] = useState('');
   const [selectedFish, setSelectedFish] = useState<FishSpecies | null>(null);
@@ -27,6 +29,9 @@ export default function AddFishModal({ visible, onClose, tankId: defaultTankId }
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [addingFish, setAddingFish] = useState(false);
   const [tanks, setTanks] = useState<TankRecord[]>([]);
+  const [assessment, setAssessment] = useState<FishCompatibilityAssessment | null>(null);
+  const [compatibilityVisible, setCompatibilityVisible] = useState(false);
+  const [checkingCompatibility, setCheckingCompatibility] = useState(false);
 
   // Get current user
   useEffect(() => {
@@ -90,7 +95,7 @@ export default function AddFishModal({ visible, onClose, tankId: defaultTankId }
   const handleSelectFish = (fish: FishSpecies) => {
     setSelectedFish(fish);
     setSpeciesQuery(fish.FBname || fish.name);
-    setImageLoading(Boolean(fish.image));
+    setImageLoading(false);
     setShowSuggestions(false);
     setFishSuggestions([]);
   };
@@ -102,9 +107,24 @@ export default function AddFishModal({ visible, onClose, tankId: defaultTankId }
     setFishSuggestions([]);
     setShowSuggestions(false);
     setImageLoading(false);
+    setAssessment(null);
   };
 
-  const handleAdd = async () => {
+  const getFishPayload = (targetTankId: string) => ({
+    userId: currentUserId as string,
+    tankId: targetTankId,
+    fishId: selectedFish?.id as string,
+    schoolSize: schoolSize.trim(),
+    name: selectedFish?.name,
+    scientificName: selectedFish?.scientificName,
+    imageName: selectedFish?.imageName,
+    image: selectedFish?.image,
+    imageSourceUrl: selectedFish?.imageSourceUrl,
+    imageLicense: selectedFish?.imageLicense,
+    source: selectedFish?.source,
+  });
+
+  const handleCheckCompatibility = async () => {
     if (!selectedFish || !selectedTank || !currentUserId) {
       Alert.alert('Missing information', 'Please select a fish, tank, and ensure you are logged in.');
       return;
@@ -116,16 +136,25 @@ export default function AddFishModal({ visible, onClose, tankId: defaultTankId }
     }
 
     try {
+      setCheckingCompatibility(true);
+      const result = await assessFishAddition(getFishPayload(selectedTank));
+      setAssessment(result);
+      setCompatibilityVisible(true);
+    } catch (error) {
+      Alert.alert('Compatibility check failed', error instanceof Error ? error.message : 'Unable to review this fish.');
+    } finally {
+      setCheckingCompatibility(false);
+    }
+  };
+
+  const handleAdd = async (targetTankId = selectedTank) => {
+    if (!selectedFish || !targetTankId || !currentUserId) {
+      return;
+    }
+
+    try {
       setAddingFish(true);
-      await addFishToTank(currentUserId, selectedTank, selectedFish.id, schoolSize, {
-        name: selectedFish.name,
-        scientificName: selectedFish.scientificName,
-        imageName: selectedFish.imageName,
-        image: selectedFish.image,
-        imageSourceUrl: selectedFish.imageSourceUrl,
-        imageLicense: selectedFish.imageLicense,
-        source: selectedFish.source,
-      });
+      await addReviewedFish(getFishPayload(targetTankId));
 
       Alert.alert('Success', `${selectedFish.name} has been added to your tank!`);
       
@@ -135,12 +164,29 @@ export default function AddFishModal({ visible, onClose, tankId: defaultTankId }
       setSelectedTank(defaultTankId || null);
       setSchoolSize('');
       setFishSuggestions([]);
+      setAssessment(null);
+      setCompatibilityVisible(false);
       
       onClose();
     } catch (error) {
       Alert.alert('Error', error instanceof Error ? error.message : 'Failed to add fish.');
     } finally {
       setAddingFish(false);
+    }
+  };
+
+  const handleAssignSuggestedTank = () => {
+    if (assessment?.suggestedTankId) {
+      setSelectedTank(assessment.suggestedTankId);
+      setCompatibilityVisible(false);
+      handleAdd(assessment.suggestedTankId);
+    }
+  };
+
+  const handleUseOptimalSchoolSize = () => {
+    if (assessment?.optimalSchoolSize) {
+      setSchoolSize(assessment.optimalSchoolSize);
+      setCompatibilityVisible(false);
     }
   };
 
@@ -168,8 +214,8 @@ export default function AddFishModal({ visible, onClose, tankId: defaultTankId }
                     source={{ uri: selectedFish.image }}
                     style={styles.photoPreview}
                     resizeMode="cover"
-                    onLoadStart={() => setImageLoading(true)}
-                    onLoadEnd={() => setImageLoading(false)}
+                    onLoad={() => setImageLoading(false)}
+                    onError={() => setImageLoading(false)}
                   />
                 ) : (
                   <View style={styles.imageEmpty}>
@@ -281,14 +327,23 @@ export default function AddFishModal({ visible, onClose, tankId: defaultTankId }
               <>
                 <View style={styles.divider} />
                 <SwipeCheckButton
-                  label="Swipe to add fish"
-                  onSwipe={handleAdd}
-                  disabled={apiLoading || addingFish || !schoolSize.trim()}
+                  label="Swipe to check compatibility"
+                  onSwipe={handleCheckCompatibility}
+                  disabled={apiLoading || addingFish || checkingCompatibility || !schoolSize.trim()}
                 />
               </>
             )}
           </ScrollView>
         </View>
+        <CompatibilityResultModal
+          visible={compatibilityVisible}
+          analysis={assessment}
+          typeLabel="fish"
+          onClose={() => setCompatibilityVisible(false)}
+          onSwipeToAdd={() => handleAdd()}
+          onAssignSuggested={handleAssignSuggestedTank}
+          onUseOptimalSchoolSize={handleUseOptimalSchoolSize}
+        />
       </View>
     </Modal>
   );

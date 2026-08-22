@@ -106,4 +106,39 @@ Rules:
 - Clearly say when more information is needed instead of guessing.`;
 }
 
-module.exports = { AQUARIUM_SYSTEM_PROMPT, fishDataPrompt, plantDataPrompt, assistantPrompt, tankOverviewPrompt };
+function fishCompatibilityPrompt({ fish, schoolSize, selectedTank, otherTanks }) {
+  return `Review whether this freshwater fish can be added to the selected aquarium.
+
+Fish to add:
+${JSON.stringify({ ...fish, schoolSize }, null, 2)}
+
+Selected tank and its linked records:
+${JSON.stringify(selectedTank, null, 2)}
+
+Other tanks owned by the user and their linked records:
+${JSON.stringify(otherTanks, null, 2)}
+
+Return JSON with exactly this shape:
+{
+  "canAdd": true,
+  "status": "compatible|incompatible|needs_information",
+  "title": "",
+  "explanation": "",
+  "optimalSchoolSize": "",
+  "maximumSchoolSize": "",
+  "suggestedTankId": null,
+  "suggestedTankName": ""
+}
+
+Rules:
+- Review the selected tank using tank size, filtration, current fish, current plants, water tests, temperature, pH, hardness, adult size, temperament, aggression, territory, and schooling needs.
+- The school size is the number the user wants to add now. Check whether it is within a safe group size and whether the total stocking would be safe.
+- "optimalSchoolSize" is the recommended group size for this fish in the best suitable tank. "maximumSchoolSize" is the largest group size you can responsibly recommend for that tank, not a target.
+- Set canAdd true only when the requested school size and selected tank are both reasonably safe. Set it false for incompatibility, overstocking, unsafe water, detectable ammonia or nitrite, or missing information that prevents a safe decision.
+- If the selected tank is unsuitable, inspect every other tank. Set suggestedTankId and suggestedTankName only when another supplied tank is a safer fit. Never suggest a tank that is also incompatible.
+- If no supplied tank is suitable, set suggestedTankId to null and explain why the fish cannot be added anywhere yet.
+- Keep explanation under 50 words, use simple language, and explain the main reason. If canAdd is false, the explanation must clearly say what makes it unsafe.
+- Do not include images, image URLs, Markdown image syntax, attachments, base64 data, or download links. Use words only.`;
+}
+
+module.exports = { AQUARIUM_SYSTEM_PROMPT, fishDataPrompt, plantDataPrompt, assistantPrompt, tankOverviewPrompt, fishCompatibilityPrompt };

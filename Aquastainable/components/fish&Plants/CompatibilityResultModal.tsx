@@ -1,13 +1,19 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Colors from '../../app/colors';
 import SwipeCheckButton from './SwipeCheckButton';
 
 type Analysis = {
-  title: string;
-  details: string;
-  success: boolean;
-  unlock: boolean;
+  title?: string;
+  details?: string;
+  explanation?: string;
+  success?: boolean;
+  unlock?: boolean;
+  canAdd?: boolean;
+  optimalSchoolSize?: string;
+  maximumSchoolSize?: string;
+  suggestedTankId?: string | null;
+  suggestedTankName?: string;
 };
 
 type Props = {
@@ -16,13 +22,34 @@ type Props = {
   typeLabel: 'fish' | 'plant';
   onClose: () => void;
   onSwipeToAdd: () => void;
+  onAssignSuggested?: () => void;
+  onUseOptimalSchoolSize?: () => void;
 };
 
-export default function CompatibilityResultModal({ visible, analysis, typeLabel, onClose, onSwipeToAdd }: Props) {
-  const canAdd = analysis?.unlock ?? false;
+export default function CompatibilityResultModal({ visible, analysis, typeLabel, onClose, onSwipeToAdd, onAssignSuggested, onUseOptimalSchoolSize }: Props) {
+  const optimalSizeHoldTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const canAdd = analysis?.canAdd ?? analysis?.unlock ?? false;
   const buttonLabel = canAdd ? `Swipe to add ${typeLabel}` : `Swipe to return`;
   const pillLabel = canAdd ? 'Compatible' : 'Not compatible';
   const pillColor = canAdd ? Colors.success : Colors.error;
+
+  const startOptimalSizeHold = () => {
+    if (!onUseOptimalSchoolSize || !analysis?.optimalSchoolSize) {
+      return;
+    }
+
+    optimalSizeHoldTimer.current = setTimeout(() => {
+      onUseOptimalSchoolSize();
+      optimalSizeHoldTimer.current = null;
+    }, 500);
+  };
+
+  const cancelOptimalSizeHold = () => {
+    if (optimalSizeHoldTimer.current) {
+      clearTimeout(optimalSizeHoldTimer.current);
+      optimalSizeHoldTimer.current = null;
+    }
+  };
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
@@ -33,7 +60,27 @@ export default function CompatibilityResultModal({ visible, analysis, typeLabel,
             <Text style={styles.pillText}>{pillLabel}</Text>
           </View>
           <Text style={[styles.title, styles.titleWithPill]}>{analysis?.title ?? 'Compatibility result'}</Text>
-          <Text style={styles.details}>{analysis?.details ?? 'No analysis available.'}</Text>
+          <Text style={styles.details}>{analysis?.explanation ?? analysis?.details ?? 'No analysis available.'}</Text>
+          {analysis?.optimalSchoolSize || analysis?.maximumSchoolSize ? (
+            <Text style={styles.schoolGuidance}>
+              Optimal group: {analysis.optimalSchoolSize || 'Unknown'}{analysis.maximumSchoolSize ? `  |  Maximum: ${analysis.maximumSchoolSize}` : ''}
+            </Text>
+          ) : null}
+          {!canAdd && analysis?.optimalSchoolSize && onUseOptimalSchoolSize ? (
+            <TouchableOpacity
+              style={styles.assignButton}
+              onPressIn={startOptimalSizeHold}
+              onPressOut={cancelOptimalSizeHold}
+              onPress={cancelOptimalSizeHold}
+            >
+              <Text style={styles.assignButtonText}>Use optimal group size</Text>
+            </TouchableOpacity>
+          ) : null}
+          {!canAdd && analysis?.suggestedTankId && onAssignSuggested ? (
+            <TouchableOpacity style={styles.assignButton} onPress={onAssignSuggested}>
+              <Text style={styles.assignButtonText}>Assign to {analysis.suggestedTankName || 'suggested tank'}</Text>
+            </TouchableOpacity>
+          ) : null}
           <View style={styles.divider} />
           <SwipeCheckButton
             label={buttonLabel}
@@ -76,6 +123,25 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 22,
     marginBottom: 22,
+  },
+  schoolGuidance: {
+    color: '#D0D7E4',
+    fontSize: 13,
+    lineHeight: 19,
+    marginBottom: 16,
+  },
+  assignButton: {
+    borderWidth: 1,
+    borderColor: '#5B8CFF',
+    borderRadius: 16,
+    paddingVertical: 12,
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  assignButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
   },
   divider: {
     height: 1,

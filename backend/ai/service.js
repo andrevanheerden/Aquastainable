@@ -1,5 +1,5 @@
 const groqProvider = require('./providers/groqProvider');
-const { AQUARIUM_SYSTEM_PROMPT, assistantPrompt, fishDataPrompt, plantDataPrompt, tankOverviewPrompt } = require('./prompts');
+const { AQUARIUM_SYSTEM_PROMPT, assistantPrompt, fishDataPrompt, plantDataPrompt, tankOverviewPrompt, fishCompatibilityPrompt } = require('./prompts');
 
 function parseJsonResponse(response) {
   try {
@@ -55,11 +55,22 @@ async function generateTankOverview(data) {
   return { overview, model: result.model };
 }
 
+async function assessFishCompatibility(data) {
+  const result = await groqProvider.generate({
+    prompt: fishCompatibilityPrompt(data),
+    system: AQUARIUM_SYSTEM_PROMPT,
+    format: 'json',
+  });
+
+  return parseJsonResponse(result.response);
+}
+
 module.exports = {
   answerAssistant,
   generateFishData,
   generatePlantData,
   generateText,
   generateTankOverview,
+  assessFishCompatibility,
   health: groqProvider.health,
 };

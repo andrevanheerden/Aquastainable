@@ -1,8 +1,124 @@
 const express = require('express');
 const { searchFish } = require('./service');
+const aiService = require('../ai/service');
+
+function compactRecord(doc) {
+  const record = { id: doc.id, ...doc.data() };
+  for (const key of ['image', 'tankImg', 'imageData', 'base64', 'imageSourceUrl', 'imageLicense']) {
+    delete record[key];
+  }
+  return record;
+}
+
+async function getTankContexts(db, userId) {
+  const tanksSnapshot = await db.collection('tanks').where('user_id', '==', userId).get();
+  return Promise.all(tanksSnapshot.docs.map(async (tankDoc) => {
+    const tankData = { id: tankDoc.id, ...tankDoc.data() };
+    delete tankData.overview;
+    delete tankData.overviewDataFingerprint;
+    delete tankData.overviewUpdatedAt;
+    delete tankData.tankImg;
+    const [fishSnapshot, plantsSnapshot, waterTestsSnapshot, legacyWaterTestsSnapshot] = await Promise.all([
+      tankDoc.ref.collection('fish').get(),
+      tankDoc.ref.collection('plants').get(),
+      tankDoc.ref.collection('waterTests').get(),
+      tankDoc.ref.collection('water_tests').get(),
+    ]);
+    const records = (snapshot) => snapshot.docs.map(compactRecord).sort((left, right) => left.id.localeCompare(right.id));
+    return {
+      id: tankData.tankId || tankDoc.id,
+      name: tankData.tankName || 'Unnamed tank',
+      tank: tankData,
+      fish: records(fishSnapshot),
+      plants: records(plantsSnapshot),
+      waterTests: [...records(waterTestsSnapshot), ...records(legacyWaterTestsSnapshot)]
+        .sort((left, right) => left.id.localeCompare(right.id)),
+    };
+  }));
+}
+
+function fishInput(body) {
+  return {
+    id: body.fishId,
+    name: body.name || '',
+    scientificName: body.scientificName || '',
+    schoolSize: body.schoolSize,
+  };
+}
+
+async function assessAddition(db, body) {
+  const contexts = await getTankContexts(db, body.userId);
+  const selectedTank = contexts.find((item) => item.id === String(body.tankId));
+  if (!selectedTank) {
+    const error = new Error('Tank does not belong to this user.');
+    error.statusCode = 403;
+    throw error;
+  }
+  const assessment = await aiService.assessFishCompatibility({
+    fish: fishInput(body),
+    schoolSize: body.schoolSize,
+    selectedTank,
+    otherTanks: contexts.filter((item) => item.id !== selectedTank.id),
+  });
+  const explanation = String(assessment.explanation || '').trim().split(/\s+/).slice(0, 50).join(' ');
+  return {
+    ...assessment,
+    canAdd: assessment.canAdd === true,
+    explanation,
+    selectedTankId: selectedTank.id,
+    selectedTankName: selectedTank.name,
+    suggestedTankId: assessment.suggestedTankId || null,
+    suggestedTankName: assessment.suggestedTankName || '',
+  };
+}
 
 function createFishRouter({ db }) {
   const router = express.Router();
+
+  router.post('/assess-add', async (req, res) => {
+    try {
+      const { userId, tankId, fishId, schoolSize } = req.body || {};
+      if (!userId || !tankId || !fishId || !String(schoolSize || '').trim()) {
+        return res.status(400).json({ error: 'userId, tankId, fishId, and schoolSize are required.' });
+      }
+      return res.status(200).json(await assessAddition(db, req.body));
+    } catch (error) {
+      console.error('Fish compatibility error:', error);
+      return res.status(error.statusCode || 502).json({ error: error.message || 'Fish compatibility review failed.' });
+    }
+  });
+
+  router.post('/add-reviewed', async (req, res) => {
+    try {
+      const { userId, tankId, fishId, schoolSize } = req.body || {};
+      if (!userId || !tankId || !fishId || !String(schoolSize || '').trim()) {
+        return res.status(400).json({ error: 'userId, tankId, fishId, and schoolSize are required.' });
+      }
+      const assessment = await assessAddition(db, req.body);
+      if (!assessment.canAdd) {
+        return res.status(409).json({ error: assessment.explanation || 'This fish cannot be added to this tank.', assessment });
+      }
+
+      const fishRecord = {
+        fishId,
+        tankId,
+        name: req.body.name || '',
+        scientificName: req.body.scientificName || '',
+        imageName: req.body.imageName || '',
+        image: req.body.image || '',
+        imageSourceUrl: req.body.imageSourceUrl || '',
+        imageLicense: req.body.imageLicense || '',
+        source: req.body.source || '',
+        schoolSize,
+        addedAt: new Date(),
+      };
+      const docRef = await db.collection('tanks').doc(String(tankId)).collection('fish').add(fishRecord);
+      return res.status(201).json({ id: docRef.id, ...fishRecord, assessment });
+    } catch (error) {
+      console.error('Reviewed fish add error:', error);
+      return res.status(error.statusCode || 502).json({ error: error.message || 'Reviewed fish add failed.' });
+    }
+  });
 
   router.get('/search', async (req, res) => {
     try {
@@ -20,6 +136,11 @@ function createFishRouter({ db }) {
 
       if (!userId || !tankId || !fishId || !schoolSize) {
         return res.status(400).json({ error: 'userId, tankId, fishId, and schoolSize are required.' });
+      }
+
+      const assessment = await assessAddition(db, req.body);
+      if (!assessment.canAdd) {
+        return res.status(409).json({ error: assessment.explanation || 'This fish cannot be added to this tank.', assessment });
       }
 
       const tankDoc = await db.collection('tanks').doc(tankId).get();
