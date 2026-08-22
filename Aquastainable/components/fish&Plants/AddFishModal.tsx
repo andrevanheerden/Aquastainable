@@ -4,6 +4,7 @@ import { onAuthStateChanged } from 'firebase/auth';
 import SwipeCheckButton from './SwipeCheckButton';
 import { useFishApi, FishSpecies } from '../../app/hooks/useFishApi';
 import { auth } from '@/firebase';
+import { useTankApi, TankRecord } from '../../app/hooks/useTankApi';
 
 type Props = {
   visible: boolean;
@@ -11,14 +12,9 @@ type Props = {
   tankId?: string;
 };
 
-const TANK_OPTIONS = [
-  { id: '1', label: 'Amazonian Reef Tank' },
-  { id: '2', label: 'Nano Betta Sanctuary' },
-  { id: '3', label: 'Treehouse Aquascape' },
-];
-
 export default function AddFishModal({ visible, onClose, tankId: defaultTankId }: Props) {
   const { searchFish, addFishToTank, loading: apiLoading } = useFishApi();
+  const { getUserTanks } = useTankApi();
   const [speciesQuery, setSpeciesQuery] = useState('');
   const [selectedFish, setSelectedFish] = useState<FishSpecies | null>(null);
   const [fishSuggestions, setFishSuggestions] = useState<FishSpecies[]>([]);
@@ -30,6 +26,7 @@ export default function AddFishModal({ visible, onClose, tankId: defaultTankId }
   const [schoolSize, setSchoolSize] = useState('');
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [addingFish, setAddingFish] = useState(false);
+  const [tanks, setTanks] = useState<TankRecord[]>([]);
 
   // Get current user
   useEffect(() => {
@@ -38,6 +35,24 @@ export default function AddFishModal({ visible, onClose, tankId: defaultTankId }
     });
     return () => unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (!currentUserId) {
+      setTanks([]);
+      setSelectedTank(null);
+      return;
+    }
+
+    getUserTanks(currentUserId)
+      .then((userTanks) => {
+        const nextTanks = Array.isArray(userTanks) ? userTanks : [];
+        setTanks(nextTanks);
+        setSelectedTank(defaultTankId && nextTanks.some((tank) => tank.tankId === defaultTankId)
+          ? defaultTankId
+          : nextTanks[0]?.tankId ?? null);
+      })
+      .catch(() => setTanks([]));
+  }, [currentUserId, defaultTankId, getUserTanks]);
 
   // Search fish whenever the user types, so suggestions update with each letter.
   useEffect(() => {
@@ -232,15 +247,15 @@ export default function AddFishModal({ visible, onClose, tankId: defaultTankId }
             <View style={styles.field}>
               <Text style={styles.fieldLabel}>Tank</Text>
               <View style={styles.tankRow}>
-                {TANK_OPTIONS.map((tank) => (
+                {tanks.map((tank) => (
                   <TouchableOpacity
-                    key={tank.id}
-                    style={[styles.tankOption, selectedTank === tank.id && styles.tankOptionActive]}
-                    onPress={() => setSelectedTank(tank.id)}
+                    key={tank.tankId}
+                    style={[styles.tankOption, selectedTank === tank.tankId && styles.tankOptionActive]}
+                    onPress={() => setSelectedTank(tank.tankId)}
                     activeOpacity={0.8}
                   >
-                    <Text style={[styles.tankLabel, selectedTank === tank.id && styles.tankLabelActive]}>
-                      {tank.label}
+                    <Text style={[styles.tankLabel, selectedTank === tank.tankId && styles.tankLabelActive]}>
+                      {tank.tankName}
                     </Text>
                   </TouchableOpacity>
                 ))}

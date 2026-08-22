@@ -21,6 +21,7 @@ export type FishSpecies = {
 export type TankFish = FishSpecies & {
   fishId: string;
   tankId: string;
+  tankName?: string;
   addedAt?: string;
 };
 
@@ -88,6 +89,10 @@ export function useFishApi() {
     return requestApi<TankFish[]>('get', `/fish/tank/${tankId}`);
   }, [requestApi]);
 
+  const getUserFish = useCallback(async (userId: string) => {
+    return requestApi<TankFish[]>('get', `/fish/user/${userId}`);
+  }, [requestApi]);
+
   const removeFishFromTank = useCallback(
     async (tankId: string, fishDocId: string) => {
       return requestApi<{ success: boolean }>('delete', `/fish/${tankId}/${fishDocId}`);
@@ -97,7 +102,7 @@ export function useFishApi() {
 
   const clearError = useCallback(() => setError(''), []);
 
-  return { loading, error, clearError, searchFish, addFishToTank, getTankFish, removeFishFromTank };
+  return { loading, error, clearError, searchFish, addFishToTank, getTankFish, getUserFish, removeFishFromTank };
 }
 
 export default useFishApi;

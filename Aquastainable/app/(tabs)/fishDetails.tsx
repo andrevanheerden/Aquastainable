@@ -1,13 +1,15 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { SafeAreaView, ScrollView, StyleSheet, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { onAuthStateChanged } from 'firebase/auth';
 
 import MainFishDisplay from '@/components/fish&Plants/MainFishDisplay';
 import SpeciesOverview from '@/components/fish&Plants/SpeciesOverview';
 import CareCards from '@/components/fish&Plants/CareCards';
 import FishLogGrid from '@/components/fish&Plants/FishLogGrid';
 import FishSicknessAssistant, { FishSicknessPrefill } from '@/components/fish&Plants/FishSicknessAssistant';
-import { getTankDetail, Species } from '@/app/data/tankDetails';
+import { auth } from '@/firebase';
+import { TankFish, useFishApi } from '@/app/hooks/useFishApi';
 
 const MAIN_FISH_IMAGE = require('../../assets/fishTank/guppy.jpg');
 
@@ -20,9 +22,27 @@ const defaultCareItems = [
 export default function FishDetailsScreen() {
   const router = useRouter();
   const { speciesId } = useLocalSearchParams<{ speciesId?: string }>();
-  const tankIds = ['1', '2', '3'];
-  const allSpecies = tankIds.flatMap((tankId) => getTankDetail(tankId)?.species ?? []);
-  const mainSpecies = allSpecies.find((item) => item.id === speciesId) ?? allSpecies[0];
+  const { getUserFish } = useFishApi();
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [fish, setFish] = useState<TankFish[]>([]);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => setCurrentUserId(user?.uid ?? null));
+    return unsubscribe;
+  }, []);
+
+  useEffect(() => {
+    if (!currentUserId) {
+      setFish([]);
+      return;
+    }
+
+    getUserFish(currentUserId)
+      .then((userFish) => setFish(Array.isArray(userFish) ? userFish : []))
+      .catch(() => setFish([]));
+  }, [currentUserId, getUserFish]);
+
+  const mainSpecies = fish.find((item) => item.id === speciesId);
   const careItems = [...defaultCareItems];
   if (mainSpecies) {
     careItems.push({ label: 'Feed type', value: mainSpecies.feeding });
@@ -35,8 +55,8 @@ export default function FishDetailsScreen() {
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={{ marginHorizontal: 0 }}>
           <MainFishDisplay
-            image={MAIN_FISH_IMAGE}
-            title={mainSpecies?.name ?? 'Guppy'}
+            image={mainSpecies?.image || MAIN_FISH_IMAGE}
+            title={mainSpecies?.name ?? 'Fish'}
             subtitle={mainSpecies?.summary}
             origin={mainSpecies?.origin}
             lifespan={mainSpecies?.lifespan}
@@ -54,7 +74,7 @@ export default function FishDetailsScreen() {
           <CareCards cards={careItems} />
 
           <FishSicknessAssistant
-            speciesName={mainSpecies?.name ?? 'Guppy'}
+            speciesName={mainSpecies?.name ?? 'fish'}
             onSendToAI={(prefill: FishSicknessPrefill) => {
               router.push({
                 pathname: '/(tabs)/AskAIScreen',

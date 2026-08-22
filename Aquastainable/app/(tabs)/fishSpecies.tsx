@@ -1,36 +1,43 @@
-import React, { useState } from 'react';
-import { FlatList, Image, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, FlatList, Image, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useRouter } from 'expo-router';
+import { onAuthStateChanged } from 'firebase/auth';
 
-import { getTankDetail, Species } from '@/app/data/tankDetails';
+import { auth } from '@/firebase';
 import AddNewFishCard from '@/components/fish&Plants/AddNewFishCard';
 import AddFishModal from '@/components/fish&Plants/AddFishModal';
+import { TankFish, useFishApi } from '@/app/hooks/useFishApi';
 
-const SPECIES_IMAGES: Record<string, string | number> = {
-  f1: require('../../assets/fishTank/guppy.jpg'),
-  f2: require('../../assets/fishTank/goldFish.jpg'),
-  f4: require('../../assets/fishTank/guppy.jpg'),
-  f6: require('../../assets/fishTank/guppy.jpg'),
-};
-
-type SpeciesCardItem = Species & { tankName: string };
+type SpeciesCardItem = TankFish;
 
 export default function FishSpeciesScreen() {
   const router = useRouter();
+  const { getUserFish, loading, error } = useFishApi();
   const [addFishVisible, setAddFishVisible] = useState(false);
-  const tankIds = ['1', '2', '3'];
-  const species: SpeciesCardItem[] = tankIds.flatMap((tankId) => {
-    const tankDetail = getTankDetail(tankId);
-    return (tankDetail?.species ?? [])
-      .filter((item) => item.type === 'fish')
-      .map((item) => ({ ...item, tankName: tankDetail?.tankName ?? 'Unknown Tank' }));
-  });
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [species, setSpecies] = useState<SpeciesCardItem[]>([]);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => setCurrentUserId(user?.uid ?? null));
+    return unsubscribe;
+  }, []);
+
+  useEffect(() => {
+    if (!currentUserId) {
+      setSpecies([]);
+      return;
+    }
+
+    getUserFish(currentUserId)
+      .then((fish) => setSpecies(Array.isArray(fish) ? fish : []))
+      .catch(() => setSpecies([]));
+  }, [currentUserId, getUserFish]);
 
   const handlePress = (item: SpeciesCardItem) => {
-    router.push({ pathname: '/(tabs)/fishDetails', params: { speciesId: item.id } });
+    router.push({ pathname: '/(tabs)/fishDetails', params: { speciesId: item.id, tankId: item.tankId } });
   };
 
-  const formatSchoolSize = (value: string) => {
+  const formatSchoolSize = (value = '') => {
     const compactValue = value.replace(/[^0-9]/g, '');
     if (!compactValue) {
       return 'N/A';
@@ -46,20 +53,20 @@ export default function FishSpeciesScreen() {
       </View>
 
       <FlatList
-        data={[...species, { id: 'add-fish-card', type: 'fish', name: '', speciesName: '', origin: '', lifespan: '', preferredTempC: '', feeding: '', schoolSize: '', summary: '', tankName: '' } as SpeciesCardItem]}
+        data={[...species, { id: 'add-fish-card' }]}
         keyExtractor={(item) => item.id}
         numColumns={2}
         columnWrapperStyle={styles.row}
         contentContainerStyle={styles.list}
         renderItem={({ item }) => {
-          if (item.id === 'add-fish-card') {
+          if (!('tankId' in item)) {
             return <AddNewFishCard onPress={() => setAddFishVisible(true)} />;
           }
 
-          const imageSource = SPECIES_IMAGES[item.id] ?? require('../../assets/fishTank/guppy.jpg');
+          const imageSource = item.image ? { uri: item.image } : undefined;
           return (
             <TouchableOpacity style={styles.card} onPress={() => handlePress(item)} activeOpacity={0.9}>
-              <Image source={imageSource} style={styles.image} resizeMode="cover" />
+              {imageSource ? <Image source={imageSource} style={styles.image} resizeMode="cover" /> : <View style={styles.imageEmpty} />}
               <View style={styles.cardBody}>
                 <Text style={styles.name}>{item.name}</Text>
                 <Text style={styles.scientific}>{item.speciesName}</Text>
@@ -67,7 +74,9 @@ export default function FishSpeciesScreen() {
                 <View style={styles.infoRow}>
                   <Text style={styles.label}>Tank</Text>
                   <Text style={[styles.value, styles.compactValue]} numberOfLines={1}>
-                    {item.tankName.length > 10 ? `${item.tankName.slice(0, 10)}...` : item.tankName}
+                    {(item.tankName || 'Unnamed tank').length > 10
+                      ? `${(item.tankName || 'Unnamed tank').slice(0, 10)}...`
+                      : item.tankName || 'Unnamed tank'}
                   </Text>
                 </View>
                 <View style={styles.infoRow}>
@@ -81,6 +90,9 @@ export default function FishSpeciesScreen() {
           );
         }}
       />
+      {loading ? <ActivityIndicator color="#FFFFFF" style={styles.loading} /> : null}
+      {!loading && !error && species.length === 0 ? <Text style={styles.emptyState}>No fish have been added to your tanks yet.</Text> : null}
+      {error ? <Text style={styles.emptyState}>Unable to load your fish right now.</Text> : null}
       <AddFishModal visible={addFishVisible} onClose={() => setAddFishVisible(false)} />
     </SafeAreaView>
   );
@@ -129,6 +141,10 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 150,
   },
+  imageEmpty: {
+    height: 150,
+    backgroundColor: '#20232C',
+  },
   cardBody: {
     paddingHorizontal: 16,
     paddingVertical: 14,
@@ -168,5 +184,14 @@ const styles = StyleSheet.create({
   compactValue: {
     maxWidth: 90,
     textAlign: 'right',
+  },
+  loading: {
+    marginTop: 16,
+  },
+  emptyState: {
+    color: '#8F97A6',
+    textAlign: 'center',
+    marginHorizontal: 20,
+    marginTop: 20,
   },
 });

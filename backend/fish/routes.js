@@ -49,6 +49,28 @@ function createFishRouter({ db }) {
     }
   });
 
+  router.get('/user/:userId', async (req, res) => {
+    try {
+      const tanksSnapshot = await db.collection('tanks').where('user_id', '==', req.params.userId).get();
+      const fishByTank = await Promise.all(tanksSnapshot.docs.map(async (tankDoc) => {
+        const tankData = tankDoc.data();
+        const fishSnapshot = await tankDoc.ref.collection('fish').get();
+
+        return fishSnapshot.docs.map((fishDoc) => ({
+          id: fishDoc.id,
+          tankId: tankData.tankId || tankDoc.id,
+          tankName: tankData.tankName || 'Unnamed tank',
+          ...fishDoc.data(),
+        }));
+      }));
+
+      return res.status(200).json(fishByTank.flat());
+    } catch (error) {
+      console.error('Get user fish error:', error);
+      return res.status(500).json({ error: error.message || 'Failed to get fish.' });
+    }
+  });
+
   router.get('/tank/:tankId', async (req, res) => {
     try {
       const snapshot = await db.collection('tanks').doc(req.params.tankId).collection('fish').get();
