@@ -10,19 +10,37 @@ export default function AddWaterTestModal({ visible, tankId, userId, onClose, on
   const { saveWaterTest, loading } = useWaterTestApi();
   const [image, setImage] = useState('');
   const [readings, setReadings] = useState({ ph: '', temperatureC: '', ammoniaPpm: '', nitritePpm: '', nitratePpm: '', chlorine: '' });
+  const [validationError, setValidationError] = useState('');
 
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.7, base64: true });
     if (!result.canceled && result.assets[0]?.base64) setImage(`data:image/jpeg;base64,${result.assets[0].base64}`);
   };
 
-  const setReading = (key: keyof typeof readings, value: string) => setReadings((current) => ({ ...current, [key]: value }));
+  const setReading = (key: keyof typeof readings, value: string) => {
+    setValidationError('');
+    setReadings((current) => ({ ...current, [key]: value }));
+  };
 
   const submit = async () => {
+    if (!readings.ph.trim() || !readings.temperatureC.trim()) {
+      setValidationError('Enter both pH and water temperature before saving. The other readings are optional.');
+      return;
+    }
+
     try {
-      await saveWaterTest({ userId, tankId, testedAt: new Date().toISOString(), readings, image: image || undefined });
-      Alert.alert('Water test saved', 'The AI summary and next water-change recommendation have been saved.');
+      const filledReadings = Object.fromEntries(
+        Object.entries(readings).filter(([, value]) => value.trim() !== ''),
+      );
+      const savedTest = await saveWaterTest({ userId, tankId, testedAt: new Date().toISOString(), readings: filledReadings, image: image || undefined });
+      Alert.alert(
+        'Water test saved',
+        savedTest.imageUploadSkipped
+          ? 'The test was saved, but the image was not uploaded. Add CLOUDINARY_URL to the backend to save images.'
+          : 'The AI summary and next water-change recommendation have been saved.',
+      );
       setReadings({ ph: '', temperatureC: '', ammoniaPpm: '', nitritePpm: '', nitratePpm: '', chlorine: '' });
+      setValidationError('');
       setImage('');
       onSaved();
       onClose();
@@ -36,7 +54,8 @@ export default function AddWaterTestModal({ visible, tankId, userId, onClose, on
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.header}><Text style={styles.title}>Add water test</Text><TouchableOpacity onPress={onClose}><Text style={styles.close}>X</Text></TouchableOpacity></View>
         <TouchableOpacity style={styles.imageBox} onPress={pickImage}>{image ? <Image source={{ uri: image }} style={styles.image} /> : <Text style={styles.muted}>Add test strip image (optional)</Text>}</TouchableOpacity>
-        {Object.keys(readings).map((key) => <View style={styles.field} key={key}><Text style={styles.label}>{key}</Text><TextInput value={readings[key as keyof typeof readings]} onChangeText={(value) => setReading(key as keyof typeof readings, value)} placeholder="~" placeholderTextColor="#6E7684" style={styles.input} /></View>)}
+        {Object.keys(readings).map((key) => <View style={styles.field} key={key}><Text style={styles.label}>{key}{(key === 'ph' || key === 'temperatureC') ? ' *' : ' (optional)'}</Text><TextInput value={readings[key as keyof typeof readings]} onChangeText={(value) => setReading(key as keyof typeof readings, value)} placeholder="~" placeholderTextColor="#6E7684" style={styles.input} /></View>)}
+        {validationError ? <Text style={styles.error}>{validationError}</Text> : null}
         <SwipeCheckButton label={loading ? 'Saving water test...' : 'Swipe to review and save'} onSwipe={submit} disabled={loading} />
       </ScrollView>
     </View></View>
@@ -57,4 +76,5 @@ const styles = StyleSheet.create({
   field: { marginBottom: 12 },
   label: { color: '#D0D7E4', fontSize: 13, fontWeight: '700', marginBottom: 6 },
   input: { height: 44, borderRadius: 12, backgroundColor: '#14151B', color: '#FFFFFF', paddingHorizontal: 12 },
+  error: { color: '#FF8A8A', fontSize: 13, marginBottom: 12 },
 });

@@ -48,9 +48,18 @@ app.post('/water-tests', async (req, res) => {
     if (!userId || !tankId || !testedAt) {
       return res.status(400).json({ error: 'userId, tankId, and testedAt are required.' });
     }
+    if (!readings || !String(readings.ph || '').trim() || !String(readings.temperatureC || '').trim()) {
+      return res.status(400).json({ error: 'pH and water temperature are required.' });
+    }
     if (!db) {
       return res.status(503).json({ error: 'Database is not configured.' });
     }
+
+    const normalizedReadings = Object.fromEntries(
+      Object.entries(readings)
+        .filter(([, value]) => value !== null && value !== undefined && String(value).trim() !== '')
+        .map(([key, value]) => [key, String(value).trim()]),
+    );
 
     const tankRef = db.collection('tanks').doc(String(tankId));
     const tankDoc = await tankRef.get();
@@ -64,28 +73,30 @@ app.post('/water-tests', async (req, res) => {
       return { name: data.name || data.scientificName || 'Unknown fish', schoolSize: data.schoolSize || '~' };
     });
     let imageUrl = '';
+    let imageUploadSkipped = false;
     if (image) {
       if (!process.env.CLOUDINARY_URL) {
-        return res.status(503).json({ error: 'Cloudinary is not configured for water-test images.' });
+        imageUploadSkipped = true;
+      } else {
+        const uploaded = await cloudinary.uploader.upload(image, {
+          folder: 'aquastainable/water-tests',
+          resource_type: 'image',
+        });
+        imageUrl = uploaded.secure_url || uploaded.url || '';
       }
-      const uploaded = await cloudinary.uploader.upload(image, {
-        folder: 'aquastainable/water-tests',
-        resource_type: 'image',
-      });
-      imageUrl = uploaded.secure_url || '';
     }
 
     const tank = tankDoc.data();
     const review = await require('./ai/service').reviewWaterTest({
       tank: { tankName: tank.tankName, tankSize: tank.tankSize, waterType: tank.waterType },
       fish,
-      readings,
+      readings: normalizedReadings,
       testedAt,
     });
     const waterTest = {
       tankId: String(tankId),
       testedAt,
-      readings,
+      readings: normalizedReadings,
       imageUrl,
       waterQuality: review.waterQuality || '~',
       summary: review.summary || '~',
@@ -94,7 +105,7 @@ app.post('/water-tests', async (req, res) => {
       createdAt: new Date().toISOString(),
     };
     const testRef = await tankRef.collection('waterTests').add(waterTest);
-    return res.status(201).json({ id: testRef.id, ...waterTest });
+    return res.status(201).json({ id: testRef.id, ...waterTest, imageUploadSkipped });
   } catch (error) {
     console.error('Water test save error:', error);
     return res.status(502).json({ error: error.message || 'Failed to save water test.' });

@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { Animated, PanResponder, StyleSheet, Text, View } from 'react-native';
+import { Animated, PanResponder, StyleSheet, View } from 'react-native';
 import { IconSymbol } from '../ui/icon-symbol';
 
 const SWIPE_THUMB_SIZE = 52;
@@ -16,7 +16,9 @@ export default function SwipeCheckButton({ onSwipe, label = 'Swipe to check comp
   const [containerWidth, setContainerWidth] = useState(0);
   const containerWidthRef = useRef(0);
   const disabledRef = useRef(disabled);
+  const onSwipeRef = useRef(onSwipe);
   disabledRef.current = disabled;
+  onSwipeRef.current = onSwipe;
 
   const panResponder = useRef(
     PanResponder.create({
@@ -31,7 +33,7 @@ export default function SwipeCheckButton({ onSwipe, label = 'Swipe to check comp
         const activeMaxTranslate = Math.max(0, containerWidthRef.current - SWIPE_THUMB_SIZE - SWIPE_PADDING * 2);
         if (gestureState.dx >= activeMaxTranslate * 0.75) {
           Animated.timing(pan, { toValue: activeMaxTranslate, duration: 120, useNativeDriver: true }).start(() => {
-            onSwipe();
+            onSwipeRef.current();
             setTimeout(() => {
               Animated.spring(pan, { toValue: 0, friction: 6, useNativeDriver: true }).start();
             }, 600);
