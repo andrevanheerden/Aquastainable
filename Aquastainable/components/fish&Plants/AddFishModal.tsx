@@ -130,14 +130,12 @@ export default function AddFishModal({ visible, onClose, tankId: defaultTankId }
       return;
     }
 
-    if (!schoolSize.trim()) {
-      Alert.alert('Missing school size', 'Please enter the school size for this fish.');
-      return;
-    }
-
     try {
       setCheckingCompatibility(true);
       const result = await assessFishAddition(getFishPayload(selectedTank));
+      if (!schoolSize.trim() && result.optimalSchoolSize) {
+        setSchoolSize(result.optimalSchoolSize);
+      }
       setAssessment(result);
       setCompatibilityVisible(true);
     } catch (error) {
@@ -315,7 +313,7 @@ export default function AddFishModal({ visible, onClose, tankId: defaultTankId }
                 <TextInput
                   value={schoolSize}
                   onChangeText={setSchoolSize}
-                  placeholder="Example: 6+ recommended"
+                  placeholder="Leave blank for an AI recommendation"
                   placeholderTextColor="#6E7684"
                   style={styles.input}
                 />
@@ -329,7 +327,7 @@ export default function AddFishModal({ visible, onClose, tankId: defaultTankId }
                 <SwipeCheckButton
                   label="Swipe to check compatibility"
                   onSwipe={handleCheckCompatibility}
-                  disabled={apiLoading || addingFish || checkingCompatibility || !schoolSize.trim()}
+                  disabled={apiLoading || addingFish || checkingCompatibility}
                 />
               </>
             )}

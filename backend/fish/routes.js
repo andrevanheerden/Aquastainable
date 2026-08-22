@@ -46,6 +46,33 @@ function fishInput(body) {
   };
 }
 
+function firstNumber(value) {
+  const match = String(value || '').match(/\d+(?:\.\d+)?/);
+  return match ? Number(match[0]) : null;
+}
+
+function maximumNumber(value) {
+  const matches = String(value || '').match(/\d+(?:\.\d+)?/g);
+  return matches?.length ? Number(matches[matches.length - 1]) : null;
+}
+
+function normalizeAssessment(assessment, requestedSchoolSize) {
+  const requested = firstNumber(requestedSchoolSize);
+  const optimal = firstNumber(assessment.optimalSchoolSize);
+  const maximum = maximumNumber(assessment.maximumSchoolSize);
+  const explanation = String(assessment.explanation || '').trim();
+  const hasBlockingIssue = /(ammonia|nitrite|chlorine|chloramine|overstock|incompatible|aggression|unsafe|danger|too small|cannot add)/i.test(explanation);
+
+  if (requested !== null && maximum !== null && requested <= maximum && !hasBlockingIssue) {
+    const comparison = optimal !== null && requested < optimal
+      ? `This group of ${requested} will work for this tank, but ${assessment.optimalSchoolSize} is the better group size.`
+      : `This is a good school size for this tank. The recommended range is ${assessment.optimalSchoolSize || requested}.`;
+    return { ...assessment, canAdd: true, status: 'compatible', explanation: comparison };
+  }
+
+  return { ...assessment, canAdd: assessment.canAdd === true || assessment.status === 'compatible', explanation };
+}
+
 async function assessAddition(db, body) {
   const contexts = await getTankContexts(db, body.userId);
   const selectedTank = contexts.find((item) => item.id === String(body.tankId));
@@ -60,10 +87,11 @@ async function assessAddition(db, body) {
     selectedTank,
     otherTanks: contexts.filter((item) => item.id !== selectedTank.id),
   });
-  const explanation = String(assessment.explanation || '').trim().split(/\s+/).slice(0, 50).join(' ');
+  const normalizedAssessment = normalizeAssessment(assessment, body.schoolSize);
+  const explanation = String(normalizedAssessment.explanation || '').trim().split(/\s+/).slice(0, 50).join(' ');
   return {
-    ...assessment,
-    canAdd: assessment.canAdd === true,
+    ...normalizedAssessment,
+    canAdd: normalizedAssessment.canAdd === true || normalizedAssessment.status === 'compatible',
     explanation,
     selectedTankId: selectedTank.id,
     selectedTankName: selectedTank.name,
@@ -78,8 +106,8 @@ function createFishRouter({ db }) {
   router.post('/assess-add', async (req, res) => {
     try {
       const { userId, tankId, fishId, schoolSize } = req.body || {};
-      if (!userId || !tankId || !fishId || !String(schoolSize || '').trim()) {
-        return res.status(400).json({ error: 'userId, tankId, fishId, and schoolSize are required.' });
+      if (!userId || !tankId || !fishId) {
+        return res.status(400).json({ error: 'userId, tankId, and fishId are required.' });
       }
       return res.status(200).json(await assessAddition(db, req.body));
     } catch (error) {
