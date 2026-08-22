@@ -78,21 +78,34 @@ app.post('/water-tests', async (req, res) => {
       if (!process.env.CLOUDINARY_URL) {
         imageUploadSkipped = true;
       } else {
-        const uploaded = await cloudinary.uploader.upload(image, {
-          folder: 'aquastainable/water-tests',
-          resource_type: 'image',
-        });
-        imageUrl = uploaded.secure_url || uploaded.url || '';
+        try {
+          const uploaded = await cloudinary.uploader.upload(image, {
+            folder: 'aquastainable/water-tests',
+            resource_type: 'image',
+          });
+          imageUrl = uploaded.secure_url || uploaded.url || '';
+          imageUploadSkipped = !imageUrl;
+        } catch (error) {
+          console.error('Water-test image upload error:', error);
+          imageUploadSkipped = true;
+        }
       }
     }
 
     const tank = tankDoc.data();
-    const review = await require('./ai/service').reviewWaterTest({
-      tank: { tankName: tank.tankName, tankSize: tank.tankSize, waterType: tank.waterType },
-      fish,
-      readings: normalizedReadings,
-      testedAt,
-    });
+    let review = { waterQuality: '~', summary: 'Water test saved. Review the readings and monitor the tank.', nextWaterChange: '~', model: '' };
+    let aiReviewSkipped = false;
+    try {
+      review = await require('./ai/service').reviewWaterTest({
+        tank: { tankName: tank.tankName, tankSize: tank.tankSize, waterType: tank.waterType },
+        fish,
+        readings: normalizedReadings,
+        testedAt,
+      });
+    } catch (error) {
+      console.error('Water-test AI review error:', error);
+      aiReviewSkipped = true;
+    }
     const waterTest = {
       tankId: String(tankId),
       testedAt,
@@ -105,7 +118,7 @@ app.post('/water-tests', async (req, res) => {
       createdAt: new Date().toISOString(),
     };
     const testRef = await tankRef.collection('waterTests').add(waterTest);
-    return res.status(201).json({ id: testRef.id, ...waterTest, imageUploadSkipped });
+    return res.status(201).json({ id: testRef.id, ...waterTest, imageUploadSkipped, aiReviewSkipped });
   } catch (error) {
     console.error('Water test save error:', error);
     return res.status(502).json({ error: error.message || 'Failed to save water test.' });

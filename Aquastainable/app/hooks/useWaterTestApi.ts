@@ -10,6 +10,7 @@ export type WaterTestRecord = {
   readings: Record<string, string>;
   imageUrl: string;
   imageUploadSkipped?: boolean;
+  aiReviewSkipped?: boolean;
   waterQuality: string;
   summary: string;
   nextWaterChange: string;

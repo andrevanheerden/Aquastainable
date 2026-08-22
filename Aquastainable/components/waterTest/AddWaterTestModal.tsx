@@ -35,8 +35,12 @@ export default function AddWaterTestModal({ visible, tankId, userId, onClose, on
       const savedTest = await saveWaterTest({ userId, tankId, testedAt: new Date().toISOString(), readings: filledReadings, image: image || undefined });
       Alert.alert(
         'Water test saved',
-        savedTest.imageUploadSkipped
-          ? 'The test was saved, but the image was not uploaded. Add CLOUDINARY_URL to the backend to save images.'
+        savedTest.imageUploadSkipped && savedTest.aiReviewSkipped
+          ? 'The test was saved, but the image and AI review could not be completed.'
+          : savedTest.imageUploadSkipped
+          ? 'The test and AI review were saved, but the image was not uploaded.'
+          : savedTest.aiReviewSkipped
+          ? 'The test was saved, but the AI review could not be completed.'
           : 'The AI summary and next water-change recommendation have been saved.',
       );
       setReadings({ ph: '', temperatureC: '', ammoniaPpm: '', nitritePpm: '', nitratePpm: '', chlorine: '' });
