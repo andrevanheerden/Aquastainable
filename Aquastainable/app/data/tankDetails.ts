@@ -31,6 +31,7 @@ export type TankConditions = {
 export type TankDetail = {
   tankId: string;
   tankName: string;
+  tankImg?: string;
   overviewSummary: string;
   conditions: TankConditions;
   species: Species[];

@@ -11,7 +11,7 @@ This backend uses Groq's hosted API to run a Llama model remotely. Groq has a fr
 ```env
 AI_ENABLED=true
 GROQ_API_KEY=put_your_key_here
-GROQ_MODEL=llama-3.1-8b-instant
+GROQ_MODEL=openai/gpt-oss-20b
 GROQ_TIMEOUT_MS=120000
 ```
 
@@ -22,6 +22,7 @@ Never commit or expose this key in the Expo app. It belongs only in the backend 
 These routes are intentionally not connected to the app screens yet:
 
 - `GET /ai/health`
+- `POST /ai/tank-overview` with `{ "userId": "...", "tankId": "..." }`
 - `POST /ai/generate` with `{ "prompt": "..." }`
 - `POST /ai/fish-data` with `{ "species": "Guppy" }`
 - `POST /ai/plant-data` with `{ "plant": "Java Fern" }`

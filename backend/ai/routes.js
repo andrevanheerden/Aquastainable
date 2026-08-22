@@ -1,11 +1,75 @@
 const express = require('express');
 const aiService = require('./service');
 
-function createAiRouter() {
+function createAiRouter({ db } = {}) {
   const router = express.Router();
 
   router.get('/health', async (req, res) => {
     return res.status(200).json(await aiService.health());
+  });
+
+  router.post('/tank-overview', async (req, res) => {
+    try {
+      const { userId, tankId } = req.body || {};
+      if (!userId || !tankId) {
+        return res.status(400).json({ error: 'userId and tankId are required.' });
+      }
+      if (!db) {
+        return res.status(503).json({ error: 'Tank data is unavailable until the database is configured.' });
+      }
+
+      const tankRef = db.collection('tanks').doc(String(tankId));
+      const tankDoc = await tankRef.get();
+      if (!tankDoc.exists || tankDoc.data().user_id !== userId) {
+        return res.status(403).json({ error: 'Tank does not belong to this user.' });
+      }
+
+      const [fishSnapshot, plantsSnapshot, waterTestsSnapshot, waterTestsLegacySnapshot] = await Promise.all([
+        tankRef.collection('fish').get(),
+        tankRef.collection('plants').get(),
+        tankRef.collection('waterTests').get(),
+        tankRef.collection('water_tests').get(),
+      ]);
+      const toOverviewRecord = (doc) => {
+        const record = { id: doc.id, ...doc.data() };
+        for (const key of ['image', 'tankImg', 'imageData', 'base64', 'imageSourceUrl', 'imageLicense']) {
+          delete record[key];
+        }
+        return record;
+      };
+      const toRecords = (snapshot) => snapshot.docs
+        .map(toOverviewRecord)
+        .sort((left, right) => left.id.localeCompare(right.id));
+      const fish = toRecords(fishSnapshot);
+      const plants = toRecords(plantsSnapshot);
+      const waterTests = [...toRecords(waterTestsSnapshot), ...toRecords(waterTestsLegacySnapshot)]
+        .sort((left, right) => left.id.localeCompare(right.id));
+      const tank = { id: tankDoc.id, ...tankDoc.data() };
+      const tankSourceData = { ...tank };
+      delete tankSourceData.tankImg;
+      delete tankSourceData.overview;
+      delete tankSourceData.overviewDataFingerprint;
+      delete tankSourceData.overviewUpdatedAt;
+      const sourceData = { tank: tankSourceData, fish, plants, waterTests };
+      const fingerprint = JSON.stringify({ tank: tankSourceData, fish, plants, waterTests });
+      const stored = tankDoc.data();
+
+      if (stored.overview && stored.overviewDataFingerprint === fingerprint) {
+        return res.status(200).json({ overview: stored.overview, generated: false });
+      }
+
+      const generated = await aiService.generateTankOverview(sourceData);
+      await tankRef.update({
+        overview: generated.overview,
+        overviewDataFingerprint: fingerprint,
+        overviewUpdatedAt: new Date().toISOString(),
+      });
+
+      return res.status(200).json({ ...generated, generated: true });
+    } catch (error) {
+      console.error('Tank overview error:', error);
+      return res.status(502).json({ error: error.message || 'Remote AI is unavailable.' });
+    }
   });
 
   router.post('/generate', async (req, res) => {

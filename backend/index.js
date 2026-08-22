@@ -40,7 +40,7 @@ const db = FIREBASE_PROJECT_ID && FIREBASE_CLIENT_EMAIL && FIREBASE_PRIVATE_KEY 
 const auth = FIREBASE_PROJECT_ID && FIREBASE_CLIENT_EMAIL && FIREBASE_PRIVATE_KEY && FIREBASE_API_KEY ? getAuth() : null;
 
 app.use('/fish', createFishRouter({ db }));
-app.use('/ai', createAiRouter());
+app.use('/ai', createAiRouter({ db }));
 
 async function uploadTankImageToCloudinary(tankImg) {
   if (!tankImg) {

@@ -56,7 +56,7 @@ function getSpeciesImage(speciesId: string, index: number) {
 export default function TankInfoScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const { getTankById } = useTankApi();
+  const { getTankById, getTankOverview } = useTankApi();
   
   const [tank, setTank] = useState<TankDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -95,11 +95,20 @@ export default function TankInfoScreen() {
         try {
           const apiTank = await getTankById(currentUserId, id);
           if (apiTank) {
+              let overview = apiTank.overview || '';
+              try {
+                const overviewResult = await getTankOverview(currentUserId, id);
+                overview = overviewResult.overview || overview;
+              } catch (overviewError) {
+                console.error('Error generating tank overview:', overviewError);
+              }
+
             // Convert API tank format to TankDetail format
             const convertedTank: TankDetail = {
               tankId: apiTank.tankId || apiTank.id,
               tankName: apiTank.tankName,
-              overviewSummary: apiTank.overview || '',
+              tankImg: apiTank.tankImg,
+                overviewSummary: overview,
               conditions: {
                 preferredTempC: '',
                 waterQuality: 'Good',
@@ -122,7 +131,7 @@ export default function TankInfoScreen() {
     };
 
     loadTank();
-  }, [id, currentUserId, getTankById]);
+  }, [id, currentUserId, getTankById, getTankOverview]);
 
   const [favorites, setFavorites] = useState<Set<string>>(
     () => new Set((tank?.species ?? []).filter((s) => s.favorite).map((s) => s.id))
@@ -167,6 +176,7 @@ export default function TankInfoScreen() {
   };
 
   const activeSpecies = tank.species[activeIndex] || tank.species[0];
+  const tankImageSource = tank.tankImg ? { uri: tank.tankImg } : TANK_IMAGES[tank.tankId] ?? TANK_IMAGES['1'];
 
   return (
     <View style={styles.container}>
@@ -207,7 +217,7 @@ export default function TankInfoScreen() {
             <View style={styles.heroPreviewContainer}>
               <View style={styles.heroPreviewBackground}>
                 <Image
-                  source={TANK_IMAGES[tank.tankId] ?? TANK_IMAGES['1']}
+                  source={tankImageSource}
                   style={styles.heroPreviewBackgroundImage}
                   blurRadius={24}
                 />
@@ -216,7 +226,7 @@ export default function TankInfoScreen() {
               <View style={styles.heroCircleContainer}>
                 <View style={styles.heroCircleGlow} />
                 <Image
-                  source={TANK_IMAGES[tank.tankId] ?? TANK_IMAGES['1']}
+                  source={tankImageSource}
                   style={styles.heroCircleImage}
                   resizeMode="cover"
                 />

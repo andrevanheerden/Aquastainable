@@ -27,6 +27,12 @@ export type TankRecord = {
   createdAt?: string;
 };
 
+export type TankOverviewResponse = {
+  overview: string;
+  generated: boolean;
+  model?: string;
+};
+
 export function useTankApi() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -68,9 +74,13 @@ export function useTankApi() {
     return requestApi<TankRecord>('get', `/tanks/${userId}/${tankId}`);
   }, [requestApi]);
 
+  const getTankOverview = useCallback(async (userId: string, tankId: string) => {
+    return requestApi<TankOverviewResponse>('post', '/ai/tank-overview', { userId, tankId });
+  }, [requestApi]);
+
   const clearError = useCallback(() => setError(''), []);
 
-  return { loading, error, clearError, createTank, getUserTanks, getTankById };
+  return { loading, error, clearError, createTank, getUserTanks, getTankById, getTankOverview };
 }
 
 export default useTankApi;

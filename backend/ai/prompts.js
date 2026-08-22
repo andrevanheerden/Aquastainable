@@ -22,6 +22,13 @@ ANSWER STYLE
 - Use units clearly (litres, US gallons when supplied, degrees Celsius, ppm, and pH). Remind users that test-kit instructions and species requirements matter.
 - Encourage reliable water testing and source verification. AI guidance is educational and is not a substitute for a qualified aquatic professional.
 
+IMAGE AND LINK RULES
+- Do not generate, attach, embed, upload, or return an image file.
+- If an image is useful, provide only one normal clickable source-page link in this format: [View image source](https://example.com/page)
+- Never use Markdown image syntax such as ![image](...), HTML image tags, base64/data URLs, blob URLs, or inline image content.
+- Link to the source webpage rather than a direct download URL. Never provide a download button, file attachment, or instructions to download an image.
+- If no reliable source-page URL is available, say that no image link is available instead of inventing one.
+
 Return only the requested format.`;
 
 function fishDataPrompt(species) {
@@ -69,7 +76,34 @@ function assistantPrompt(message, context = {}) {
 Aquarium context:
 ${JSON.stringify(context, null, 2)}
 
-Answer in clear, concise text. Stay within the aquarium scope and follow the safety rules in the system instructions. Start with STOP when the proposed action could harm fish or plants. Include clear steps, safe target ranges only when species-appropriate, and the water tests or tank details needed before giving a recommendation.`;
+Answer in clear, concise text. Stay within the aquarium scope and follow the safety and image/link rules in the system instructions. Start with STOP when the proposed action could harm fish or plants. Include clear steps, safe target ranges only when species-appropriate, and the water tests or tank details needed before giving a recommendation. If an image is useful, provide only a clickable source-page link; never embed or attach the image.`;
 }
 
-module.exports = { AQUARIUM_SYSTEM_PROMPT, fishDataPrompt, plantDataPrompt, assistantPrompt };
+function tankOverviewPrompt({ tank, fish, plants, waterTests }) {
+  return `Write a simple overview for this freshwater aquarium using every piece of supplied data.
+
+Tank data:
+${JSON.stringify(tank, null, 2)}
+
+Fish linked to this tank:
+${JSON.stringify(fish, null, 2)}
+
+Plants linked to this tank:
+${JSON.stringify(plants, null, 2)}
+
+Water tests linked to this tank:
+${JSON.stringify(waterTests, null, 2)}
+
+Rules:
+- Maximum 150 words. Aim for 80-120 words.
+- Write one clear paragraph, not a title, bullet list, or JSON.
+- Mention the tank's name and size when available.
+- Summarize the current fish, plants, and latest water-test condition when those records exist.
+- If only basic tank data exists, say that the tank is ready to be developed and suggest a few suitable freshwater fish options based on the tank size. Do not invent existing fish, plants, or test results.
+- Suggest fish only when tank size and water conditions make them reasonably appropriate. Mention schooling, adult size, compatibility, and required groups where relevant.
+- Include one or two practical improvements, prioritizing water testing, cycling, filtration, plants, or stocking.
+- Never recommend incompatible fish, overstocking, or adding fish while ammonia or nitrite is detectable. If a dangerous test is present, lead with STOP and the immediate safe action.
+- Clearly say when more information is needed instead of guessing.`;
+}
+
+module.exports = { AQUARIUM_SYSTEM_PROMPT, fishDataPrompt, plantDataPrompt, assistantPrompt, tankOverviewPrompt };
