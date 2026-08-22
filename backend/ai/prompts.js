@@ -141,4 +141,31 @@ Rules:
 - Do not include images, image URLs, Markdown image syntax, attachments, base64 data, or download links. Use words only.`;
 }
 
-module.exports = { AQUARIUM_SYSTEM_PROMPT, fishDataPrompt, plantDataPrompt, assistantPrompt, tankOverviewPrompt, fishCompatibilityPrompt };
+function waterTestPrompt({ tank, fish, readings, testedAt }) {
+  return `Review this freshwater aquarium water test.
+
+Tank:
+${JSON.stringify(tank, null, 2)}
+Fish in tank:
+${JSON.stringify(fish, null, 2)}
+Test date: ${testedAt}
+Readings:
+${JSON.stringify(readings, null, 2)}
+
+Return JSON with exactly these keys:
+{
+  "waterQuality": "Excellent|Good|Fair|Needs attention",
+  "summary": "",
+  "nextWaterChange": ""
+}
+
+Rules:
+- Keep summary to 100 words maximum and use simple language.
+- Describe the condition using only the supplied readings; never invent missing values.
+- Treat ammonia or nitrite above 0 ppm, or chlorine/chloramine, as urgent and start with STOP.
+- Recommend a practical next water change based on tank size, readings, filtration, and fish. Include approximate percentage only when safe and explain to use conditioner and temperature-matched water.
+- Do not recommend adding fish when ammonia or nitrite is detectable.
+- Do not include images, image URLs, attachments, base64 data, or download links.`;
+}
+
+module.exports = { AQUARIUM_SYSTEM_PROMPT, fishDataPrompt, plantDataPrompt, assistantPrompt, tankOverviewPrompt, fishCompatibilityPrompt, waterTestPrompt };

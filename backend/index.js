@@ -42,6 +42,75 @@ const auth = FIREBASE_PROJECT_ID && FIREBASE_CLIENT_EMAIL && FIREBASE_PRIVATE_KE
 app.use('/fish', createFishRouter({ db }));
 app.use('/ai', createAiRouter({ db }));
 
+app.post('/water-tests', async (req, res) => {
+  try {
+    const { userId, tankId, readings = {}, image, testedAt } = req.body || {};
+    if (!userId || !tankId || !testedAt) {
+      return res.status(400).json({ error: 'userId, tankId, and testedAt are required.' });
+    }
+    if (!db) {
+      return res.status(503).json({ error: 'Database is not configured.' });
+    }
+
+    const tankRef = db.collection('tanks').doc(String(tankId));
+    const tankDoc = await tankRef.get();
+    if (!tankDoc.exists || tankDoc.data().user_id !== userId) {
+      return res.status(403).json({ error: 'Tank does not belong to this user.' });
+    }
+
+    const fishSnapshot = await tankRef.collection('fish').get();
+    const fish = fishSnapshot.docs.map((doc) => {
+      const data = doc.data();
+      return { name: data.name || data.scientificName || 'Unknown fish', schoolSize: data.schoolSize || '~' };
+    });
+    let imageUrl = '';
+    if (image) {
+      if (!process.env.CLOUDINARY_URL) {
+        return res.status(503).json({ error: 'Cloudinary is not configured for water-test images.' });
+      }
+      const uploaded = await cloudinary.uploader.upload(image, {
+        folder: 'aquastainable/water-tests',
+        resource_type: 'image',
+      });
+      imageUrl = uploaded.secure_url || '';
+    }
+
+    const tank = tankDoc.data();
+    const review = await require('./ai/service').reviewWaterTest({
+      tank: { tankName: tank.tankName, tankSize: tank.tankSize, waterType: tank.waterType },
+      fish,
+      readings,
+      testedAt,
+    });
+    const waterTest = {
+      tankId: String(tankId),
+      testedAt,
+      readings,
+      imageUrl,
+      waterQuality: review.waterQuality || '~',
+      summary: review.summary || '~',
+      nextWaterChange: review.nextWaterChange || '~',
+      aiModel: review.model || '',
+      createdAt: new Date().toISOString(),
+    };
+    const testRef = await tankRef.collection('waterTests').add(waterTest);
+    return res.status(201).json({ id: testRef.id, ...waterTest });
+  } catch (error) {
+    console.error('Water test save error:', error);
+    return res.status(502).json({ error: error.message || 'Failed to save water test.' });
+  }
+});
+
+app.get('/water-tests/tank/:tankId', async (req, res) => {
+  try {
+    if (!db) return res.status(503).json({ error: 'Database is not configured.' });
+    const snapshot = await db.collection('tanks').doc(req.params.tankId).collection('waterTests').get();
+    return res.status(200).json(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
+  } catch (error) {
+    return res.status(500).json({ error: error.message || 'Failed to load water tests.' });
+  }
+});
+
 async function uploadTankImageToCloudinary(tankImg) {
   if (!tankImg) {
     return '';

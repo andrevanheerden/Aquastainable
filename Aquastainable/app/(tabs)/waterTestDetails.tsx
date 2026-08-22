@@ -1,9 +1,14 @@
-import React from 'react';
-import { SafeAreaView, ScrollView, StyleSheet, Text, View, Image, Dimensions } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, SafeAreaView, ScrollView, StyleSheet, Text, View, Image, Dimensions } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
+import { onAuthStateChanged } from 'firebase/auth';
 
-import { getTankDetail } from '@/app/data/tankDetails';
 import WaterTestSummaryCard from '../../components/waterTest/WaterTestSummaryCard';
+import AddWaterTestModal from '../../components/waterTest/AddWaterTestModal';
+import HoldToOpenButton from '../../components/waterTest/HoldToOpenButton';
+import { auth } from '@/firebase';
+import { useTankApi } from '../hooks/useTankApi';
+import useWaterTestApi, { WaterTestRecord } from '../hooks/useWaterTestApi';
 
 const TANK_IMAGES = {
   '1': require('../../assets/fishTank/FishTankForest.jpeg'),
@@ -13,19 +18,80 @@ const TANK_IMAGES = {
 
 export default function WaterTestDetailsScreen() {
   const { tankId } = useLocalSearchParams<{ tankId?: string }>();
-  const tank = getTankDetail(tankId ?? '1');
+  const { getTankById } = useTankApi();
+  const { getTankWaterTests } = useWaterTestApi();
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [tank, setTank] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [addTestVisible, setAddTestVisible] = useState(false);
+  const [latestTest, setLatestTest] = useState<WaterTestRecord | null>(null);
 
-  if (!tank) {
-    return null;
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => setCurrentUserId(user?.uid ?? null));
+    return unsubscribe;
+  }, []);
+
+  useEffect(() => {
+    if (!tankId) {
+      setLoading(false);
+      return;
+    }
+
+    if (!currentUserId) {
+      return;
+    }
+
+    setLoading(true);
+    Promise.all([getTankById(currentUserId, tankId), getTankWaterTests(tankId).catch(() => [])])
+      .then(([apiTank, tests]) => {
+        const newestTest = [...tests].sort((left, right) => right.testedAt.localeCompare(left.testedAt))[0] || null;
+        setLatestTest(newestTest);
+        setTank({
+          tankId: apiTank.tankId || apiTank.id,
+          tankName: apiTank.tankName || 'Unnamed tank',
+          tankImg: apiTank.tankImg || '',
+          conditions: {
+            preferredTempC: apiTank.preferredTempC || apiTank.temperatureC || '~',
+            waterQuality: newestTest?.waterQuality || apiTank.waterQuality || '~',
+            lastTestedDaysAgo: newestTest ? Math.floor((Date.now() - new Date(newestTest.testedAt).getTime()) / 86400000) : apiTank.lastTestedDaysAgo ?? '~',
+            ph: newestTest?.readings?.ph || apiTank.ph || '~',
+            ammoniaPpm: newestTest?.readings?.ammoniaPpm ?? apiTank.ammoniaPpm ?? '~',
+            nitritePpm: newestTest?.readings?.nitritePpm ?? apiTank.nitritePpm ?? '~',
+          },
+        });
+      })
+      .catch(() => setTank(null))
+      .finally(() => setLoading(false));
+  }, [currentUserId, getTankById, getTankWaterTests, tankId]);
+
+  if (loading) {
+    return <SafeAreaView style={styles.container}><ActivityIndicator color="#FFFFFF" /></SafeAreaView>;
   }
 
-  const conditions = tank.conditions;
-  const nextTestDue = conditions.lastTestedDaysAgo >= 7 ? 'Due now' : `${7 - conditions.lastTestedDaysAgo} days`;
+  if (!tank) {
+    return <SafeAreaView style={styles.container}><Text style={styles.emptyText}>Tank data unavailable.</Text></SafeAreaView>;
+  }
+
+  const latestTestAge = latestTest ? Math.max(0, Math.floor((Date.now() - new Date(latestTest.testedAt).getTime()) / 86400000)) : null;
+  const conditions = latestTest ? {
+    ...tank.conditions,
+    waterQuality: latestTest.waterQuality || tank.conditions.waterQuality,
+    lastTestedDaysAgo: latestTestAge,
+    ph: latestTest.readings?.ph || '~',
+    temperatureC: latestTest.readings?.temperatureC || '~',
+    preferredTempC: latestTest.readings?.temperatureC || '~',
+    ammoniaPpm: latestTest.readings?.ammoniaPpm ?? '~',
+    nitritePpm: latestTest.readings?.nitritePpm ?? '~',
+  } : tank.conditions;
+  const hasTestDate = typeof conditions.lastTestedDaysAgo === 'number';
+  const nextTestDue = hasTestDate ? (conditions.lastTestedDaysAgo >= 7 ? 'Due now' : `${7 - conditions.lastTestedDaysAgo} days`) : '~';
+  const testDate = hasTestDate ? `${conditions.lastTestedDaysAgo} days ago` : '~';
+  const hasTestData = conditions.ph !== '~' || conditions.ammoniaPpm !== '~' || conditions.nitritePpm !== '~';
   const history = [
     {
       title: 'Latest test',
-      date: `${conditions.lastTestedDaysAgo} days ago`,
-      summary: `AI review: ${conditions.waterQuality === 'Excellent' ? 'Water quality is stable and the tank is in good condition.' : 'The tank needs attention and should be monitored closely.'}`,
+      date: testDate,
+      summary: hasTestData ? `AI review: ${conditions.waterQuality === 'Excellent' ? 'Water quality is stable and the tank is in good condition.' : 'The tank needs attention and should be monitored closely.'}` : 'No water test data yet.',
       data: [
         { label: 'pH', value: conditions.ph },
         { label: 'Ammonia', value: conditions.ammoniaPpm },
@@ -35,24 +101,24 @@ export default function WaterTestDetailsScreen() {
     },
     {
       title: 'Previous test',
-      date: '8 days ago',
-      summary: 'AI review: Parameters stayed consistent with a minor rise in nitrite, so a follow-up test is recommended.',
+      date: '~',
+      summary: 'No previous water test data yet.',
       data: [
-        { label: 'pH', value: '7.0' },
-        { label: 'Ammonia', value: '0 ppm' },
-        { label: 'Nitrite', value: '0.1 ppm' },
-        { label: 'Next test', value: '5 days' },
+        { label: 'pH', value: '~' },
+        { label: 'Ammonia', value: '~' },
+        { label: 'Nitrite', value: '~' },
+        { label: 'Next test', value: '~' },
       ],
     },
     {
       title: 'Earlier test',
-      date: '14 days ago',
-      summary: 'AI review: The tank was balanced and healthy, with no urgency for intervention at the time.',
+      date: '~',
+      summary: 'No earlier water test data yet.',
       data: [
-        { label: 'pH', value: '6.9' },
-        { label: 'Ammonia', value: '0 ppm' },
-        { label: 'Nitrite', value: '0 ppm' },
-        { label: 'Next test', value: '7 days' },
+        { label: 'pH', value: '~' },
+        { label: 'Ammonia', value: '~' },
+        { label: 'Nitrite', value: '~' },
+        { label: 'Next test', value: '~' },
       ],
     },
   ];
@@ -62,7 +128,7 @@ export default function WaterTestDetailsScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <Image source={TANK_IMAGES[tank.tankId] ?? TANK_IMAGES['1']} style={styles.heroImage} resizeMode="cover" />
+        <Image source={tank.tankImg ? { uri: tank.tankImg } : TANK_IMAGES[tank.tankId as keyof typeof TANK_IMAGES] ?? TANK_IMAGES['1']} style={styles.heroImage} resizeMode="cover" />
 
         <View style={styles.headerBlock}>
           <View style={styles.titleRow}>
@@ -71,25 +137,30 @@ export default function WaterTestDetailsScreen() {
               <Text style={styles.statusText}>{conditions.waterQuality}</Text>
             </View>
           </View>
-          <Text style={styles.subtitle}>Last tested {conditions.lastTestedDaysAgo} days ago</Text>
+          <Text style={styles.subtitle}>Last tested {testDate}</Text>
           <Text style={styles.tankName}>Tank: {tank.tankName}</Text>
         </View>
 
         <View style={styles.summaryBox}>
           <Text style={styles.summaryTitle}>AI summary</Text>
           <Text style={styles.summaryText}>
-            {conditions.waterQuality === 'Excellent'
+            {latestTest?.summary || (conditions.waterQuality === '~'
+              ? 'No water test data yet. Add a test to see water-quality insights.'
+              : conditions.waterQuality === 'Excellent'
               ? 'The water chemistry looks balanced and the tank is in a healthy state for ongoing maintenance.'
-              : 'The tank may need attention soon. Keep an eye on ammonia and nitrite levels and consider an early water change.'}
+              : 'The tank may need attention soon. Keep an eye on ammonia and nitrite levels and consider an early water change.')}
           </Text>
+          {latestTest?.nextWaterChange ? <Text style={styles.nextChange}>Next change: {latestTest.nextWaterChange}</Text> : null}
         </View>
+
+        <HoldToOpenButton onHold={() => setAddTestVisible(true)} />
 
         <View style={styles.dataCard}>
           <Text style={styles.dataTitle}>Latest test data</Text>
-          <View style={styles.dataRow}><Text style={styles.dataLabel}>pH</Text><Text style={styles.dataValue}>{conditions.ph}</Text></View>
-          <View style={styles.dataRow}><Text style={styles.dataLabel}>Temp</Text><Text style={styles.dataValue}>{conditions.preferredTempC}</Text></View>
-          <View style={styles.dataRow}><Text style={styles.dataLabel}>Ammonia</Text><Text style={styles.dataValue}>{conditions.ammoniaPpm}</Text></View>
-          <View style={styles.dataRow}><Text style={styles.dataLabel}>Nitrite</Text><Text style={styles.dataValue}>{conditions.nitritePpm}</Text></View>
+          <View style={styles.dataRow}><Text style={styles.dataLabel}>pH</Text><Text style={styles.dataValue}>{conditions.ph || '~'}</Text></View>
+          <View style={styles.dataRow}><Text style={styles.dataLabel}>Temp</Text><Text style={styles.dataValue}>{conditions.preferredTempC || '~'}</Text></View>
+          <View style={styles.dataRow}><Text style={styles.dataLabel}>Ammonia</Text><Text style={styles.dataValue}>{conditions.ammoniaPpm ?? '~'}</Text></View>
+          <View style={styles.dataRow}><Text style={styles.dataLabel}>Nitrite</Text><Text style={styles.dataValue}>{conditions.nitritePpm ?? '~'}</Text></View>
         </View>
 
         <View style={styles.carouselSection}>
@@ -113,6 +184,7 @@ export default function WaterTestDetailsScreen() {
           </ScrollView>
         </View>
       </ScrollView>
+      {currentUserId ? <AddWaterTestModal visible={addTestVisible} tankId={tank.tankId} userId={currentUserId} onClose={() => setAddTestVisible(false)} onSaved={() => { setAddTestVisible(false); getTankWaterTests(tank.tankId).then((tests) => setLatestTest([...tests].sort((left, right) => right.testedAt.localeCompare(left.testedAt))[0] || null)).catch(() => undefined); }} /> : null}
     </SafeAreaView>
   );
 }
@@ -121,6 +193,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#090A0F',
+  },
+  emptyText: {
+    color: '#8F97A6',
+    fontSize: 14,
+    textAlign: 'center',
+    marginTop: 24,
   },
   content: {
     paddingBottom: 40,
@@ -186,6 +264,12 @@ const styles = StyleSheet.create({
     color: '#8F97A6',
     fontSize: 14,
     lineHeight: 20,
+  },
+  nextChange: {
+    color: '#D0D7E4',
+    fontSize: 13,
+    lineHeight: 19,
+    marginTop: 12,
   },
   dataCard: {
     marginHorizontal: 20,

@@ -25,6 +25,14 @@ export type TankRecord = {
   overview: string;
   aquaCare: Record<string, unknown>;
   createdAt?: string;
+  testDate?: string;
+  waterQuality?: string;
+  preferredTempC?: string;
+  temperatureC?: string;
+  lastTestedDaysAgo?: number;
+  ph?: string;
+  ammoniaPpm?: string | number;
+  nitritePpm?: string | number;
 };
 
 export type TankOverviewResponse = {

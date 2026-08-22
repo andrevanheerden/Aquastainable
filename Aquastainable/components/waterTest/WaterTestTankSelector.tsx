@@ -24,13 +24,13 @@ export default function WaterTestTankSelector({ tanks, onSelect }: Props) {
             <View style={styles.infoRow}>
               <Text style={styles.label}>Test date</Text>
               <Text style={[styles.value, styles.compactValue]} numberOfLines={1}>
-                {tank.testDate ?? '—'}
+                {tank.testDate || '~'}
               </Text>
             </View>
             <View style={styles.infoRow}>
               <Text style={styles.label}>Water quality</Text>
               <Text style={[styles.value, styles.compactValue]} numberOfLines={1}>
-                {tank.waterQuality ?? '—'}
+                {tank.waterQuality || '~'}
               </Text>
             </View>
           </View>
