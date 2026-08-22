@@ -2,6 +2,37 @@ const express = require('express');
 const { searchFish } = require('./service');
 const aiService = require('../ai/service');
 
+function rangeText(range, suffix = '') {
+  if (!range || range.min === null || range.max === null) return '';
+  return `${range.min}-${range.max}${suffix}`;
+}
+
+async function getCareProfile(body) {
+  const profile = await aiService.generateFishData(body.scientificName || body.name || body.fishId);
+  return {
+    description: String(profile.careNotes || '').trim(),
+    bestTempC: rangeText(profile.temperatureC, '°C'),
+    phRange: rangeText(profile.pH),
+    waterSpace: profile.minimumTankLitres ? `${profile.minimumTankLitres} L minimum` : '',
+    feedType: String(profile.diet || '').trim(),
+    adultLengthCm: profile.adultLengthCm ?? null,
+    temperament: String(profile.temperament || '').trim(),
+    minimumGroupSize: profile.minimumGroupSize ?? null,
+    careProfileConfidence: String(profile.confidence || 'low').trim(),
+    careProfileModel: String(profile.model || '').trim(),
+    careProfileUpdatedAt: new Date(),
+  };
+}
+
+async function getCareProfileSafely(body) {
+  try {
+    return await getCareProfile(body);
+  } catch (error) {
+    console.warn('Fish care profile unavailable:', error.message || error);
+    return {};
+  }
+}
+
 function compactRecord(doc) {
   const record = { id: doc.id, ...doc.data() };
   for (const key of ['image', 'tankImg', 'imageData', 'base64', 'imageSourceUrl', 'imageLicense']) {
@@ -139,6 +170,7 @@ function createFishRouter({ db }) {
         source: req.body.source || '',
         schoolSize,
         addedAt: new Date(),
+        ...(await getCareProfileSafely(req.body)),
       };
       const docRef = await db.collection('tanks').doc(String(tankId)).collection('fish').add(fishRecord);
       return res.status(201).json({ id: docRef.id, ...fishRecord, assessment });
@@ -155,6 +187,30 @@ function createFishRouter({ db }) {
     } catch (error) {
       console.error('Fish search error:', error);
       return res.status(502).json({ error: error.message || 'Fish species API is unavailable.' });
+    }
+  });
+
+  router.post('/enrich/:fishId', async (req, res) => {
+    try {
+      const { userId } = req.body || {};
+      if (!db) return res.status(503).json({ error: 'Database is not configured.' });
+      if (!userId) return res.status(400).json({ error: 'userId is required.' });
+
+      const tanksSnapshot = await db.collection('tanks').where('user_id', '==', userId).get();
+      const matchingDocs = [];
+      for (const tankDoc of tanksSnapshot.docs) {
+        const fishSnapshot = await tankDoc.ref.collection('fish').where('fishId', '==', String(req.params.fishId)).get();
+        fishSnapshot.docs.forEach((fishDoc) => matchingDocs.push(fishDoc));
+      }
+      if (!matchingDocs.length) return res.status(404).json({ error: 'Fish was not found for this user.' });
+
+      const source = matchingDocs[0].data();
+      const careProfile = await getCareProfile({ ...source, fishId: req.params.fishId });
+      await Promise.all(matchingDocs.map((fishDoc) => fishDoc.ref.update(careProfile)));
+      return res.status(200).json({ updated: matchingDocs.length, ...careProfile });
+    } catch (error) {
+      console.error('Fish enrichment error:', error);
+      return res.status(502).json({ error: error.message || 'Fish care data could not be loaded.' });
     }
   });
 
@@ -188,6 +244,7 @@ function createFishRouter({ db }) {
         source: source || '',
         schoolSize,
         addedAt: new Date(),
+        ...(await getCareProfileSafely(req.body)),
       };
 
       const docRef = await db.collection('tanks').doc(tankId).collection('fish').add(fishRecord);

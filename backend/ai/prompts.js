@@ -44,6 +44,7 @@ Return JSON with exactly these keys:
   "pH": { "min": null, "max": null },
   "adultLengthCm": null,
   "diet": "",
+  "minimumTankLitres": null,
   "temperament": "",
   "minimumGroupSize": null,
   "careNotes": "",

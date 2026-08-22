@@ -16,6 +16,23 @@ export type FishSpecies = {
   schoolSize: string;
   tempC: string;
   pH: string;
+  fishId?: string;
+  description?: string;
+  bestTempC?: string;
+  phRange?: string;
+  waterSpace?: string;
+  feedType?: string;
+  feeding?: string;
+  summary?: string;
+  speciesName?: string;
+  origin?: string;
+  lifespan?: string;
+  preferredTempC?: string;
+  adultLengthCm?: number | null;
+  temperament?: string;
+  minimumGroupSize?: number | null;
+  careProfileConfidence?: string;
+  careProfileModel?: string;
 };
 
 export type TankFish = FishSpecies & {
@@ -133,6 +150,14 @@ export function useFishApi() {
     return requestApi<TankFish[]>('get', `/fish/user/${userId}`);
   }, [requestApi]);
 
+  const enrichFish = useCallback(async (userId: string, fishId: string) => {
+    return requestApi<{ updated: number; description?: string; bestTempC?: string; phRange?: string; waterSpace?: string; feedType?: string }>(
+      'post',
+      `/fish/enrich/${encodeURIComponent(fishId)}`,
+      { userId },
+    );
+  }, [requestApi]);
+
   const removeFishFromTank = useCallback(
     async (tankId: string, fishDocId: string) => {
       return requestApi<{ success: boolean }>('delete', `/fish/${tankId}/${fishDocId}`);
@@ -142,7 +167,7 @@ export function useFishApi() {
 
   const clearError = useCallback(() => setError(''), []);
 
-  return { loading, error, clearError, searchFish, addFishToTank, assessFishAddition, addReviewedFish, getTankFish, getUserFish, removeFishFromTank };
+  return { loading, error, clearError, searchFish, addFishToTank, assessFishAddition, addReviewedFish, getTankFish, getUserFish, enrichFish, removeFishFromTank };
 }
 
 export default useFishApi;
