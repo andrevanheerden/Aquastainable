@@ -1,23 +1,23 @@
-const ollamaProvider = require('./providers/ollamaProvider');
+const groqProvider = require('./providers/groqProvider');
 const { AQUARIUM_SYSTEM_PROMPT, assistantPrompt, fishDataPrompt, plantDataPrompt } = require('./prompts');
 
 function parseJsonResponse(response) {
   try {
     return JSON.parse(response);
   } catch (error) {
-    throw new Error('The local AI returned invalid JSON.');
+    throw new Error('The remote AI returned invalid JSON.');
   }
 }
 
 async function generateText(prompt) {
-  return ollamaProvider.generate({
+  return groqProvider.generate({
     prompt,
     system: AQUARIUM_SYSTEM_PROMPT,
   });
 }
 
 async function generateFishData(species) {
-  const result = await ollamaProvider.generate({
+  const result = await groqProvider.generate({
     prompt: fishDataPrompt(species),
     system: AQUARIUM_SYSTEM_PROMPT,
     format: 'json',
@@ -27,7 +27,7 @@ async function generateFishData(species) {
 }
 
 async function generatePlantData(plant) {
-  const result = await ollamaProvider.generate({
+  const result = await groqProvider.generate({
     prompt: plantDataPrompt(plant),
     system: AQUARIUM_SYSTEM_PROMPT,
     format: 'json',
@@ -37,7 +37,7 @@ async function generatePlantData(plant) {
 }
 
 async function answerAssistant(message, context) {
-  const result = await ollamaProvider.generate({
+  const result = await groqProvider.generate({
     prompt: assistantPrompt(message, context),
     system: AQUARIUM_SYSTEM_PROMPT,
   });
@@ -50,5 +50,5 @@ module.exports = {
   generateFishData,
   generatePlantData,
   generateText,
-  health: ollamaProvider.health,
+  health: groqProvider.health,
 };

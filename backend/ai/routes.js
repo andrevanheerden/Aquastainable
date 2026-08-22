@@ -18,7 +18,7 @@ function createAiRouter() {
       return res.status(200).json(await aiService.generateText(prompt));
     } catch (error) {
       console.error('AI generation error:', error);
-      return res.status(502).json({ error: error.message || 'Local AI is unavailable.' });
+      return res.status(502).json({ error: error.message || 'Remote AI is unavailable.' });
     }
   });
 
@@ -32,7 +32,7 @@ function createAiRouter() {
       return res.status(200).json(await aiService.generateFishData(species));
     } catch (error) {
       console.error('AI fish data error:', error);
-      return res.status(502).json({ error: error.message || 'Local AI is unavailable.' });
+      return res.status(502).json({ error: error.message || 'Remote AI is unavailable.' });
     }
   });
 
@@ -46,7 +46,7 @@ function createAiRouter() {
       return res.status(200).json(await aiService.generatePlantData(plant));
     } catch (error) {
       console.error('AI plant data error:', error);
-      return res.status(502).json({ error: error.message || 'Local AI is unavailable.' });
+      return res.status(502).json({ error: error.message || 'Remote AI is unavailable.' });
     }
   });
 
@@ -60,7 +60,7 @@ function createAiRouter() {
       return res.status(200).json(await aiService.answerAssistant(message, req.body?.context || {}));
     } catch (error) {
       console.error('AI assistant error:', error);
-      return res.status(502).json({ error: error.message || 'Local AI is unavailable.' });
+      return res.status(502).json({ error: error.message || 'Remote AI is unavailable.' });
     }
   });
 
