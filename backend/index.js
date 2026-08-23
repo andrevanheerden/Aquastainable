@@ -19,7 +19,13 @@ app.use(express.json({ limit: '20mb' }));
 app.use(express.urlencoded({ extended: true, limit: '20mb' }));
 
 if (process.env.CLOUDINARY_URL) {
-  cloudinary.config({ secure: true, cloudinary_url: process.env.CLOUDINARY_URL });
+  const cloudinaryUrl = new URL(process.env.CLOUDINARY_URL);
+  cloudinary.config({
+    cloud_name: cloudinaryUrl.hostname,
+    api_key: decodeURIComponent(cloudinaryUrl.username),
+    api_secret: decodeURIComponent(cloudinaryUrl.password),
+    secure: true,
+  });
 }
 
 const { FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY, FIREBASE_API_KEY } = process.env;

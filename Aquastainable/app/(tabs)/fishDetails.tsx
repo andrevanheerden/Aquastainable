@@ -108,7 +108,16 @@ export default function FishDetailsScreen() {
               title="Fish school"
               description="Log each fish in your tank with a name and photo. The last card is a placeholder to add a new fish in the future."
             />
-            <FishLogGrid />
+            <FishLogGrid
+              userId={currentUserId || ''}
+              tankId={mainSpecies?.tankId || ''}
+              fishDocId={mainSpecies?.id || ''}
+              onParentSchoolSizeChange={(schoolSize) => {
+                setFish((currentFish) => currentFish.map((item) => (
+                  item.id === mainSpecies?.id ? { ...item, schoolSize } : item
+                )));
+              }}
+            />
           </View>
         </View>
       </ScrollView>

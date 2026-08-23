@@ -1,6 +1,92 @@
 const express = require('express');
+const cloudinary = require('cloudinary').v2;
 const { searchFish } = require('./service');
 const aiService = require('../ai/service');
+
+const INDIVIDUAL_FISH_FIELDS = ['name', 'age', 'health', 'story'];
+
+function incrementSchoolSize(value) {
+  const source = String(value || '').trim();
+  const match = source.match(/(\d+)/);
+  if (!match) return '1';
+  const nextValue = String(Number(match[1]) + 1);
+  return `${source.slice(0, match.index)}${nextValue}${source.slice(match.index + match[1].length)}`;
+}
+
+function databaseError() {
+  const error = new Error('Database is not configured.');
+  error.statusCode = 503;
+  return error;
+}
+
+async function getIndividualFishParent(db, userId, tankId, fishDocId) {
+  if (!db) throw databaseError();
+  if (!userId) {
+    const error = new Error('userId is required.');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const tankRef = db.collection('tanks').doc(String(tankId));
+  const tankDoc = await tankRef.get();
+  if (!tankDoc.exists || tankDoc.data().user_id !== userId) {
+    const error = new Error('Tank does not belong to this user.');
+    error.statusCode = 403;
+    throw error;
+  }
+
+  const fishRef = tankRef.collection('fish').doc(String(fishDocId));
+  const fishDoc = await fishRef.get();
+  if (!fishDoc.exists) {
+    const error = new Error('Parent fish was not found.');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  return { tankRef, fishRef };
+}
+
+async function uploadIndividualFishImage(image) {
+  const imageValue = String(image || '').trim();
+  if (!imageValue) return '';
+  if (imageValue.includes('res.cloudinary.com') || imageValue.includes('cloudinary')) return imageValue;
+  if (!process.env.CLOUDINARY_URL) {
+    const error = new Error('Cloudinary is not configured for fish images.');
+    error.statusCode = 503;
+    throw error;
+  }
+
+  const uploaded = await cloudinary.uploader.upload(imageValue, {
+    folder: 'aquastainable/individual-fish',
+    resource_type: 'image',
+  });
+  return uploaded.secure_url || uploaded.url || '';
+}
+
+function individualFishInput(body = {}) {
+  return {
+    name: String(body.name || '').trim(),
+    age: String(body.age || '').trim(),
+    health: String(body.health || '').trim(),
+    story: String(body.story || body.description || '').trim(),
+    schoolStatus: body.schoolStatus,
+  };
+}
+
+function validateIndividualFishInput(input, requireImage = true) {
+  const missingFields = INDIVIDUAL_FISH_FIELDS.filter((field) => !input[field]);
+  if (requireImage && !input.image) missingFields.push('image');
+  if (missingFields.length) {
+    const error = new Error(`${missingFields.join(', ')} ${missingFields.length === 1 ? 'is' : 'are'} required.`);
+    error.statusCode = 400;
+    throw error;
+  }
+  if (!['new', 'existing'].includes(input.schoolStatus)) {
+    const error = new Error('schoolStatus must be new or existing.');
+    error.statusCode = 400;
+    throw error;
+  }
+}
 
 function rangeText(range, suffix = '') {
   if (!range || range.min === null || range.max === null) return '';
@@ -284,6 +370,110 @@ function createFishRouter({ db }) {
     } catch (error) {
       console.error('Get tank fish error:', error);
       return res.status(500).json({ error: error.message || 'Failed to get fish.' });
+    }
+  });
+
+  router.post('/:tankId/:fishDocId/individual-fish', async (req, res) => {
+    try {
+      const { userId, image, imageUrl } = req.body || {};
+      const fields = individualFishInput(req.body);
+      const input = { ...fields, image: image || imageUrl };
+      validateIndividualFishInput(input);
+      const { fishRef } = await getIndividualFishParent(db, userId, req.params.tankId, req.params.fishDocId);
+      const storedImageUrl = await uploadIndividualFishImage(input.image);
+      const individualFishRef = fishRef.collection('individualFish').doc();
+      const individualFish = {
+        parentFishId: String(req.params.fishDocId),
+        tankId: String(req.params.tankId),
+        imageUrl: storedImageUrl,
+        ...fields,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      const result = await db.runTransaction(async (transaction) => {
+        const parentFishDoc = await transaction.get(fishRef);
+        if (!parentFishDoc.exists) {
+          const error = new Error('Parent fish was not found.');
+          error.statusCode = 404;
+          throw error;
+        }
+        const parentData = parentFishDoc.data();
+        const parentSchoolSize = fields.schoolStatus === 'new'
+          ? incrementSchoolSize(parentData.schoolSize)
+          : parentData.schoolSize || '';
+        transaction.set(individualFishRef, individualFish);
+        if (fields.schoolStatus === 'new') {
+          transaction.update(fishRef, { schoolSize: parentSchoolSize, updatedAt: new Date() });
+        }
+        return parentSchoolSize;
+      });
+      return res.status(201).json({ id: individualFishRef.id, ...individualFish, parentSchoolSize: result });
+    } catch (error) {
+      console.error('Add individual fish error:', error);
+      return res.status(error.statusCode || 500).json({ error: error.message || 'Failed to add individual fish.' });
+    }
+  });
+
+  router.get('/:tankId/:fishDocId/individual-fish', async (req, res) => {
+    try {
+      const { userId } = req.query;
+      const { fishRef } = await getIndividualFishParent(db, userId, req.params.tankId, req.params.fishDocId);
+      const snapshot = await fishRef.collection('individualFish').get();
+      return res.status(200).json(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
+    } catch (error) {
+      console.error('Get individual fish error:', error);
+      return res.status(error.statusCode || 500).json({ error: error.message || 'Failed to get individual fish.' });
+    }
+  });
+
+  router.patch('/:tankId/:fishDocId/individual-fish/:individualFishId', async (req, res) => {
+    try {
+      const { userId, image, imageUrl } = req.body || {};
+      const { fishRef } = await getIndividualFishParent(db, userId, req.params.tankId, req.params.fishDocId);
+      const individualFishRef = fishRef.collection('individualFish').doc(String(req.params.individualFishId));
+      const existingDoc = await individualFishRef.get();
+      if (!existingDoc.exists) {
+        return res.status(404).json({ error: 'Individual fish was not found.' });
+      }
+
+      const updates = {};
+      const fields = individualFishInput(req.body);
+      for (const field of INDIVIDUAL_FISH_FIELDS) {
+        if (Object.prototype.hasOwnProperty.call(req.body || {}, field)) {
+          if (!fields[field]) return res.status(400).json({ error: `${field} is required.` });
+          updates[field] = fields[field];
+        }
+      }
+      if (image || imageUrl) {
+        updates.imageUrl = await uploadIndividualFishImage(image || imageUrl);
+      }
+      if (!Object.keys(updates).length) {
+        return res.status(400).json({ error: 'At least one individual fish field is required.' });
+      }
+      updates.updatedAt = new Date();
+      await individualFishRef.update(updates);
+      const updatedDoc = await individualFishRef.get();
+      return res.status(200).json({ id: updatedDoc.id, ...updatedDoc.data() });
+    } catch (error) {
+      console.error('Update individual fish error:', error);
+      return res.status(error.statusCode || 500).json({ error: error.message || 'Failed to update individual fish.' });
+    }
+  });
+
+  router.delete('/:tankId/:fishDocId/individual-fish/:individualFishId', async (req, res) => {
+    try {
+      const { userId } = req.body || {};
+      const { fishRef } = await getIndividualFishParent(db, userId, req.params.tankId, req.params.fishDocId);
+      const individualFishRef = fishRef.collection('individualFish').doc(String(req.params.individualFishId));
+      const individualFishDoc = await individualFishRef.get();
+      if (!individualFishDoc.exists) {
+        return res.status(404).json({ error: 'Individual fish was not found.' });
+      }
+      await individualFishRef.delete();
+      return res.status(200).json({ success: true, message: 'Individual fish removed.' });
+    } catch (error) {
+      console.error('Delete individual fish error:', error);
+      return res.status(error.statusCode || 500).json({ error: error.message || 'Failed to delete individual fish.' });
     }
   });
 

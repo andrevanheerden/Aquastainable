@@ -22,6 +22,23 @@ tanks/{tankId}/fish/{fishDocumentId}
 
 The saved record includes the API names, image URL, image source, license, user's school size, description, best temperature, pH range, minimum water space, feed type, adult length, temperament, minimum group size, and profile confidence. It is not a shared fish catalog.
 
+## Individual fish
+
+Individual fish profiles are stored beneath their parent fish record:
+
+```text
+tanks/{tankId}/fish/{fishDocumentId}/individualFish/{individualFishId}
+```
+
+The individual record stores `parentFishId`, `tankId`, `imageUrl`, `name`, `age`, `health`, `story`, `createdAt`, and `updatedAt`. New images are uploaded to Cloudinary under `aquastainable/individual-fish` and only the returned URL is stored.
+
+CRUD endpoints, all scoped with the parent tank and fish ownership check:
+
+- `POST /fish/{tankId}/{fishDocumentId}/individual-fish` with `{ userId, image, name, age, health, story, schoolStatus }`, where `schoolStatus` is `new` or `existing`
+- `GET /fish/{tankId}/{fishDocumentId}/individual-fish?userId={userId}`
+- `PATCH /fish/{tankId}/{fishDocumentId}/individual-fish/{individualFishId}` with any editable fields
+- `DELETE /fish/{tankId}/{fishDocumentId}/individual-fish/{individualFishId}` with `{ userId }`
+
 Legacy records can be enriched with `POST /fish/enrich/:fishId` using `{ "userId": "..." }`. This updates every matching record owned by that user, including species ID `173412` when its fish detail page is opened.
 
 ## Sources

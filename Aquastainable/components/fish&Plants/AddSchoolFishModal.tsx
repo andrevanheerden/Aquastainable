@@ -15,7 +15,7 @@ export type FishRecord = {
 type Props = {
   visible: boolean;
   onClose: () => void;
-  onSave: (fish: FishRecord) => void;
+  onSave: (fish: FishRecord) => void | Promise<void>;
 };
 
 export default function AddSchoolFishModal({ visible, onClose, onSave }: Props) {
@@ -55,7 +55,7 @@ export default function AddSchoolFishModal({ visible, onClose, onSave }: Props) 
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: 'images',
       quality: 0.8,
     });
 
@@ -64,13 +64,13 @@ export default function AddSchoolFishModal({ visible, onClose, onSave }: Props) 
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!imageUri || !name.trim() || !age.trim() || !story.trim()) {
       Alert.alert('Missing information', 'Please add an image, name, age, and story for this fish.');
       return;
     }
 
-    onSave({
+    await onSave({
       id: `custom-${Date.now()}`,
       name: name.trim(),
       age: age.trim(),

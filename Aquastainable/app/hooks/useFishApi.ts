@@ -42,6 +42,20 @@ export type TankFish = FishSpecies & {
   addedAt?: string;
 };
 
+export type IndividualFish = {
+  id: string;
+  parentFishId: string;
+  tankId: string;
+  imageUrl: string;
+  name: string;
+  age: string;
+  health: string;
+  story: string;
+  schoolStatus: 'new' | 'existing';
+  createdAt?: string;
+  updatedAt?: string;
+};
+
 export type FishCompatibilityAssessment = {
   canAdd: boolean;
   status: 'compatible' | 'incompatible' | 'needs_information';
@@ -59,7 +73,7 @@ export function useFishApi() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const requestApi = useCallback(async <T,>(method: 'get' | 'post' | 'delete', path: string, payload?: object) => {
+  const requestApi = useCallback(async <T,>(method: 'get' | 'post' | 'patch' | 'delete', path: string, payload?: object) => {
     setError('');
     setLoading(true);
 
@@ -158,6 +172,22 @@ export function useFishApi() {
     );
   }, [requestApi]);
 
+  const getIndividualFish = useCallback(async (userId: string, tankId: string, fishDocId: string) => {
+    return requestApi<IndividualFish[]>('get', `/fish/${encodeURIComponent(tankId)}/${encodeURIComponent(fishDocId)}/individual-fish?userId=${encodeURIComponent(userId)}`);
+  }, [requestApi]);
+
+  const addIndividualFish = useCallback(async (userId: string, tankId: string, fishDocId: string, payload: Omit<IndividualFish, 'id' | 'parentFishId' | 'tankId' | 'imageUrl' | 'createdAt' | 'updatedAt'> & { image: string }) => {
+    return requestApi<IndividualFish & { parentSchoolSize: string }>('post', `/fish/${encodeURIComponent(tankId)}/${encodeURIComponent(fishDocId)}/individual-fish`, { userId, ...payload });
+  }, [requestApi]);
+
+  const updateIndividualFish = useCallback(async (userId: string, tankId: string, fishDocId: string, individualFishId: string, payload: Partial<Pick<IndividualFish, 'name' | 'age' | 'health' | 'schoolStatus'>> & { story?: string; image?: string }) => {
+    return requestApi<IndividualFish>('patch', `/fish/${encodeURIComponent(tankId)}/${encodeURIComponent(fishDocId)}/individual-fish/${encodeURIComponent(individualFishId)}`, { userId, ...payload });
+  }, [requestApi]);
+
+  const deleteIndividualFish = useCallback(async (userId: string, tankId: string, fishDocId: string, individualFishId: string) => {
+    return requestApi<{ success: boolean }>('delete', `/fish/${encodeURIComponent(tankId)}/${encodeURIComponent(fishDocId)}/individual-fish/${encodeURIComponent(individualFishId)}`, { userId });
+  }, [requestApi]);
+
   const removeFishFromTank = useCallback(
     async (tankId: string, fishDocId: string) => {
       return requestApi<{ success: boolean }>('delete', `/fish/${tankId}/${fishDocId}`);
@@ -167,7 +197,7 @@ export function useFishApi() {
 
   const clearError = useCallback(() => setError(''), []);
 
-  return { loading, error, clearError, searchFish, addFishToTank, assessFishAddition, addReviewedFish, getTankFish, getUserFish, enrichFish, removeFishFromTank };
+  return { loading, error, clearError, searchFish, addFishToTank, assessFishAddition, addReviewedFish, getTankFish, getUserFish, enrichFish, getIndividualFish, addIndividualFish, updateIndividualFish, deleteIndividualFish, removeFishFromTank };
 }
 
 export default useFishApi;

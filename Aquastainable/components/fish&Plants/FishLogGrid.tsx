@@ -1,23 +1,76 @@
-import React, { useState } from 'react';
-import { View, StyleSheet } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { Alert, View, StyleSheet } from 'react-native';
 
 import FishLogCard from './FishLogCard';
 import AddNewFishCard from './AddNewFishCard';
 import AddSchoolFishModal, { FishRecord } from './AddSchoolFishModal';
+import { IndividualFish, useFishApi } from '../../app/hooks/useFishApi';
 
-// Guppy school: 6 individual fish using the guppy asset files.
-const LOG_ITEMS: FishRecord[] = [
-  { id: 'g1', name: 'Jade', age: '1.5 yrs', health: 'Thriving', description: 'Jade is the calm center of the school and is usually the first to explore a new hiding spot.', schoolStatus: 'existing', image: require('../../assets/guppy/guppy-Jade.jpeg') },
-  { id: 'g2', name: 'Midas', age: '1.2 yrs', health: 'Healthy', description: 'Midas is an energetic swimmer who loves feeding time and keeps the school moving.', schoolStatus: 'existing', image: require('../../assets/guppy/guppy-Midas.jpeg') },
-  { id: 'g3', name: 'Pixel', age: '1.0 yrs', health: 'Excellent', description: 'Pixel is curious and quick, often darting between the plants at the front of the tank.', schoolStatus: 'existing', image: require('../../assets/guppy/guppy-Pixel.jpeg') },
-  { id: 'g4', name: 'Tux', age: '2.0 yrs', health: 'Stable', description: 'Tux is the oldest fish in the school and has a steady, confident presence.', schoolStatus: 'existing', image: require('../../assets/guppy/guppy-Tux.jpeg') },
-  { id: 'g5', name: 'Ziggy', age: '0.8 yrs', health: 'Active', description: 'Ziggy is the newest member of the school and has quickly settled into the group.', schoolStatus: 'existing', image: require('../../assets/guppy/guppy-Ziggy.jpg') },
-  { id: 'g6', name: 'Zues', age: '1.7 yrs', health: 'Strong', description: 'Zues is a strong swimmer who often leads the school across the open water.', schoolStatus: 'existing', image: require('../../assets/guppy/guppy-Zues.jpeg') },
-];
+type Props = {
+  userId: string;
+  tankId: string;
+  fishDocId: string;
+  onParentSchoolSizeChange: (schoolSize: string) => void;
+};
 
-export default function FishLogGrid() {
-  const [fishRecords, setFishRecords] = useState<FishRecord[]>(LOG_ITEMS);
+function toFishRecord(fish: IndividualFish): FishRecord {
+  return {
+    id: fish.id,
+    name: fish.name,
+    age: fish.age,
+    health: fish.health,
+    description: fish.story,
+    schoolStatus: fish.schoolStatus,
+    image: { uri: fish.imageUrl },
+  };
+}
+
+async function imageUriToDataUri(uri: string) {
+  const response = await fetch(uri);
+  const blob = await response.blob();
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(String(reader.result));
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+export default function FishLogGrid({ userId, tankId, fishDocId, onParentSchoolSizeChange }: Props) {
+  const { getIndividualFish, addIndividualFish } = useFishApi();
+  const [fishRecords, setFishRecords] = useState<FishRecord[]>([]);
   const [isAddFishVisible, setIsAddFishVisible] = useState(false);
+
+  useEffect(() => {
+    if (!userId || !tankId || !fishDocId) {
+      setFishRecords([]);
+      return;
+    }
+
+    getIndividualFish(userId, tankId, fishDocId)
+      .then((fish) => setFishRecords(Array.isArray(fish) ? fish.map(toFishRecord) : []))
+      .catch(() => setFishRecords([]));
+  }, [fishDocId, getIndividualFish, tankId, userId]);
+
+  const handleSave = async (fish: FishRecord) => {
+    try {
+      const image = typeof fish.image === 'object' && 'uri' in fish.image
+        ? await imageUriToDataUri(fish.image.uri)
+        : '';
+      const savedFish = await addIndividualFish(userId, tankId, fishDocId, {
+        image,
+        name: fish.name,
+        age: fish.age,
+        health: fish.health,
+        story: fish.description,
+        schoolStatus: fish.schoolStatus,
+      });
+      setFishRecords((currentFish) => [...currentFish, toFishRecord(savedFish)]);
+      onParentSchoolSizeChange(savedFish.parentSchoolSize);
+    } catch (error) {
+      Alert.alert('Unable to add fish', error instanceof Error ? error.message : 'The fish could not be saved.');
+    }
+  };
 
   return (
     <View style={styles.grid}>
@@ -28,7 +81,7 @@ export default function FishLogGrid() {
       <AddSchoolFishModal
         visible={isAddFishVisible}
         onClose={() => setIsAddFishVisible(false)}
-        onSave={(fish) => setFishRecords((currentFish) => [...currentFish, fish])}
+        onSave={handleSave}
       />
     </View>
   );
