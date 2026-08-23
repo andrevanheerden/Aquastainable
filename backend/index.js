@@ -11,6 +11,7 @@ const { getFirestore, FieldValue } = require('firebase-admin/firestore');
 dotenv.config();
 
 const createFishRouter = require('./fish/routes');
+const createPlantRouter = require('./plant/routes');
 const createAiRouter = require('./ai/routes');
 
 const app = express();
@@ -46,6 +47,7 @@ const db = FIREBASE_PROJECT_ID && FIREBASE_CLIENT_EMAIL && FIREBASE_PRIVATE_KEY 
 const auth = FIREBASE_PROJECT_ID && FIREBASE_CLIENT_EMAIL && FIREBASE_PRIVATE_KEY && FIREBASE_API_KEY ? getAuth() : null;
 
 app.use('/fish', createFishRouter({ db }));
+app.use('/plants', createPlantRouter({ db }));
 app.use('/ai', createAiRouter({ db }));
 
 app.post('/water-tests', async (req, res) => {

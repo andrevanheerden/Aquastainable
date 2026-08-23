@@ -41,6 +41,15 @@ CRUD endpoints, all scoped with the parent tank and fish ownership check:
 
 Legacy records can be enriched with `POST /fish/enrich/:fishId` using `{ "userId": "..." }`. This updates every matching record owned by that user, including species ID `173412` when its fish detail page is opened.
 
+## Aquarium plant search
+
+Plant search uses iNaturalist's taxonomy API filtered to `Plantae`. iNaturalist supplies names and image/source metadata; aquarium-specific care and compatibility data should be added through the AI care profile or a curated application layer rather than inferred from general plant taxonomy.
+
+Plant endpoints:
+
+- `GET /plants/search?query={query}`
+- `POST /plants/add` with `{ userId, tankId, plantId, name, scientificName, image, imageSourceUrl, imageLicense, source }`
+
 ## Sources
 
 - iNaturalist API: `https://api.inaturalist.org/v1/taxa/autocomplete`
