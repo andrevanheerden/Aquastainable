@@ -18,6 +18,23 @@ export type SavedPlant = PlantSpecies & {
   tankId: string;
   tankName?: string;
   addedAt?: string;
+  description?: string;
+  bestTempC?: string;
+  phRange?: string;
+  light?: string;
+  growthRate?: string;
+  placement?: string;
+  careProfileConfidence?: string;
+  careProfileModel?: string;
+};
+
+export type PlantCompatibilityAssessment = {
+  canAdd: boolean;
+  status: 'compatible' | 'incompatible' | 'needs_information';
+  title: string;
+  explanation: string;
+  suggestedPlantName: string;
+  model?: string;
 };
 
 export function usePlantApi() {
@@ -59,7 +76,15 @@ export function usePlantApi() {
     source?: string;
   }) => requestApi<SavedPlant>('post', '/plants/add', payload), [requestApi]);
 
-  return { loading, error, searchPlants, addPlantToTank };
+  const getUserPlants = useCallback(async (userId: string) => (
+    requestApi<SavedPlant[]>('get', `/plants/user/${encodeURIComponent(userId)}`)
+  ), [requestApi]);
+
+  const assessPlantAddition = useCallback(async (payload: { userId: string; tankId: string; plant: PlantSpecies }) => (
+    requestApi<PlantCompatibilityAssessment>('post', '/plants/assess-add', payload)
+  ), [requestApi]);
+
+  return { loading, error, searchPlants, assessPlantAddition, addPlantToTank, getUserPlants };
 }
 
 export default usePlantApi;

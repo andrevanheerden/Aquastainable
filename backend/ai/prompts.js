@@ -145,6 +145,36 @@ Rules:
 - Do not include images, image URLs, Markdown image syntax, attachments, base64 data, or download links. Use words only.`;
 }
 
+function plantCompatibilityPrompt({ plant, selectedTank, otherTanks }) {
+  return `Review whether this freshwater aquarium plant is suitable for the selected tank.
+
+Plant to add:
+${JSON.stringify(plant, null, 2)}
+
+Selected tank and linked records:
+${JSON.stringify(selectedTank, null, 2)}
+
+Other tanks owned by the user:
+${JSON.stringify(otherTanks, null, 2)}
+
+Return JSON with exactly this shape:
+{
+  "canAdd": true,
+  "status": "compatible|incompatible|needs_information",
+  "title": "",
+  "explanation": "",
+  "suggestedPlantName": ""
+}
+
+Rules:
+- Check whether the plant is genuinely aquatic, then compare its light, temperature, pH, placement, growth, size, and care needs with the tank's supplied data.
+- Check current fish, plants, tank size, filtration, and water tests. Never recommend a plant that could harm the fish or destabilize the aquarium.
+- Treat detectable ammonia or nitrite as a reason to set canAdd false and explain that water must be corrected first.
+- Set canAdd true only when the supplied data supports a safe recommendation. Use needs_information when important data is missing.
+- If canAdd is false, suggest one widely used freshwater aquarium plant that is more likely to suit the supplied tank. Leave suggestedPlantName empty when no safe suggestion can be made.
+- Keep explanation under 50 words. Do not include image URLs, Markdown, attachments, or extra JSON keys.`;
+}
+
 function waterTestPrompt({ tank, fish, readings, testedAt }) {
   return `Review this freshwater aquarium water test.
 
@@ -172,4 +202,4 @@ Rules:
 - Do not include images, image URLs, attachments, base64 data, or download links.`;
 }
 
-module.exports = { AQUARIUM_SYSTEM_PROMPT, fishDataPrompt, plantDataPrompt, assistantPrompt, tankOverviewPrompt, fishCompatibilityPrompt, waterTestPrompt };
+module.exports = { AQUARIUM_SYSTEM_PROMPT, fishDataPrompt, plantDataPrompt, assistantPrompt, tankOverviewPrompt, fishCompatibilityPrompt, plantCompatibilityPrompt, waterTestPrompt };

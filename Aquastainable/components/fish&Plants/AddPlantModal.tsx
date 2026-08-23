@@ -18,10 +18,11 @@ type Analysis = {
   details: string;
   success: boolean;
   unlock: boolean;
+  suggestedPlantName?: string;
 };
 
 export default function AddPlantModal({ visible, onClose }: Props) {
-  const { searchPlants, addPlantToTank } = usePlantApi();
+  const { searchPlants, assessPlantAddition, addPlantToTank } = usePlantApi();
   const { getUserTanks } = useTankApi();
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [speciesQuery, setSpeciesQuery] = useState('');
@@ -33,6 +34,7 @@ export default function AddPlantModal({ visible, onClose }: Props) {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [compatibilityVisible, setCompatibilityVisible] = useState(false);
+  const [checkingCompatibility, setCheckingCompatibility] = useState(false);
 
   useEffect(() => onAuthStateChanged(auth, (user) => setCurrentUserId(user?.uid ?? null)), []);
 
@@ -87,17 +89,41 @@ export default function AddPlantModal({ visible, onClose }: Props) {
     }
   };
 
-  const handleSwipeComplete = () => {
-    const plantDetail = selectedPlant?.name || speciesQuery.trim() || 'this plant';
-    setAnalysis({
-      title: 'AI Compatibility check is positive',
-      details:
-        `${plantDetail} looks like a good fit for the chosen tank. ` +
-        'The selected setup should support this species without conflict, and it will help balance the light and nutrient cycle.',
-      success: true,
-      unlock: true,
-    });
-    setCompatibilityVisible(true);
+  const handleSwipeComplete = async () => {
+    if (!selectedPlant || !selectedTank || !currentUserId) {
+      Alert.alert('Missing information', 'Select a plant and tank before requesting a review.');
+      return;
+    }
+
+    try {
+      setCheckingCompatibility(true);
+      const result = await assessPlantAddition({ userId: currentUserId, tankId: selectedTank, plant: selectedPlant });
+      setAnalysis({
+        title: result.title,
+        details: result.explanation,
+        success: result.canAdd,
+        unlock: result.canAdd,
+        suggestedPlantName: result.suggestedPlantName,
+      });
+      setCompatibilityVisible(true);
+    } catch (error) {
+      Alert.alert('Review failed', error instanceof Error ? error.message : 'The plant could not be reviewed.');
+    } finally {
+      setCheckingCompatibility(false);
+    }
+  };
+
+  const handleSelectSuggestedPlant = async () => {
+    if (!analysis?.suggestedPlantName) return;
+    const results = await searchPlants(analysis.suggestedPlantName);
+    const suggestedPlant = results[0];
+    if (!suggestedPlant) {
+      Alert.alert('Suggestion unavailable', 'We could not find that plant in the plant database.');
+      return;
+    }
+    handleSelectPlant(suggestedPlant);
+    setAnalysis(null);
+    setCompatibilityVisible(false);
   };
 
   const handleSelectPlant = (plant: PlantSpecies) => {
@@ -206,7 +232,7 @@ export default function AddPlantModal({ visible, onClose }: Props) {
 
             <View style={styles.divider} />
             <Text style={styles.sectionLabel}>Compatibility</Text>
-            <SwipeCheckButton label="Swipe to check" onSwipe={handleSwipeComplete} />
+            <SwipeCheckButton label={checkingCompatibility ? 'Reviewing plant...' : 'Swipe to check'} onSwipe={handleSwipeComplete} disabled={checkingCompatibility} />
           </ScrollView>
         </View>
         <CompatibilityResultModal
@@ -215,6 +241,7 @@ export default function AddPlantModal({ visible, onClose }: Props) {
           typeLabel="plant"
           onClose={() => setCompatibilityVisible(false)}
           onSwipeToAdd={handleAdd}
+          onSelectSuggestedPlant={handleSelectSuggestedPlant}
         />
       </View>
     </Modal>

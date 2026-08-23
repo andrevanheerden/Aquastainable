@@ -1,5 +1,5 @@
-import React, { useRef } from 'react';
-import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { Animated, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Colors from '../../app/colors';
 import SwipeCheckButton from './SwipeCheckButton';
 
@@ -14,6 +14,7 @@ type Analysis = {
   maximumSchoolSize?: string;
   suggestedTankId?: string | null;
   suggestedTankName?: string;
+  suggestedPlantName?: string;
 };
 
 type Props = {
@@ -24,10 +25,14 @@ type Props = {
   onSwipeToAdd: () => void;
   onAssignSuggested?: () => void;
   onUseOptimalSchoolSize?: () => void;
+  onSelectSuggestedPlant?: () => void | Promise<void>;
 };
 
-export default function CompatibilityResultModal({ visible, analysis, typeLabel, onClose, onSwipeToAdd, onAssignSuggested, onUseOptimalSchoolSize }: Props) {
+export default function CompatibilityResultModal({ visible, analysis, typeLabel, onClose, onSwipeToAdd, onAssignSuggested, onUseOptimalSchoolSize, onSelectSuggestedPlant }: Props) {
   const optimalSizeHoldTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const suggestedPlantHoldTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const suggestedPlantProgress = useRef(new Animated.Value(0)).current;
+  const [suggestedPlantTriggered, setSuggestedPlantTriggered] = useState(false);
   const canAdd = analysis?.canAdd ?? analysis?.unlock ?? false;
   const buttonLabel = canAdd ? `Swipe to add ${typeLabel}` : `Swipe to return`;
   const pillLabel = canAdd ? 'Compatible' : 'Not compatible';
@@ -51,6 +56,33 @@ export default function CompatibilityResultModal({ visible, analysis, typeLabel,
     }
   };
 
+  useEffect(() => () => {
+    if (suggestedPlantHoldTimer.current) clearTimeout(suggestedPlantHoldTimer.current);
+  }, []);
+
+  const startSuggestedPlantHold = () => {
+    if (!onSelectSuggestedPlant) return;
+    setSuggestedPlantTriggered(false);
+    suggestedPlantProgress.setValue(0);
+    Animated.timing(suggestedPlantProgress, { toValue: 1, duration: 400, useNativeDriver: false }).start();
+    suggestedPlantHoldTimer.current = setTimeout(async () => {
+      setSuggestedPlantTriggered(true);
+      suggestedPlantHoldTimer.current = null;
+      await onSelectSuggestedPlant();
+    }, 400);
+  };
+
+  const cancelSuggestedPlantHold = () => {
+    if (suggestedPlantHoldTimer.current) {
+      clearTimeout(suggestedPlantHoldTimer.current);
+      suggestedPlantHoldTimer.current = null;
+    }
+    suggestedPlantProgress.stopAnimation();
+    if (!suggestedPlantTriggered) suggestedPlantProgress.setValue(0);
+  };
+
+  const suggestedPlantFillWidth = suggestedPlantProgress.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] });
+
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={styles.backdrop}>
@@ -61,6 +93,15 @@ export default function CompatibilityResultModal({ visible, analysis, typeLabel,
           </View>
           <Text style={[styles.title, styles.titleWithPill]}>{analysis?.title ?? 'Compatibility result'}</Text>
           <Text style={styles.details}>{analysis?.explanation ?? analysis?.details ?? 'No analysis available.'}</Text>
+          {!canAdd && analysis?.suggestedPlantName && onSelectSuggestedPlant ? (
+            <View>
+              <Text style={styles.suggestionText}>Suggested alternative: {analysis.suggestedPlantName}</Text>
+              <TouchableOpacity style={styles.assignButton} onPressIn={startSuggestedPlantHold} onPressOut={cancelSuggestedPlantHold} activeOpacity={0.9}>
+                <Animated.View style={[styles.holdFill, { width: suggestedPlantFillWidth }]} />
+                <Text style={styles.assignButtonText}>Hold to select suggestion</Text>
+              </TouchableOpacity>
+            </View>
+          ) : null}
           {analysis?.optimalSchoolSize || analysis?.maximumSchoolSize ? (
             <Text style={styles.schoolGuidance}>
               Optimal group: {analysis.optimalSchoolSize || 'Unknown'}{analysis.maximumSchoolSize ? `  |  Maximum: ${analysis.maximumSchoolSize}` : ''}
@@ -131,6 +172,8 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   assignButton: {
+    overflow: 'hidden',
+    position: 'relative',
     borderWidth: 1,
     borderColor: '#5B8CFF',
     borderRadius: 16,
@@ -139,9 +182,20 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   assignButtonText: {
+    zIndex: 1,
     color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '700',
+  },
+  holdFill: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#2563EB',
+  },
+  suggestionText: {
+    color: '#D0D7E4',
+    fontSize: 13,
+    lineHeight: 19,
+    marginBottom: 10,
   },
   divider: {
     height: 1,
