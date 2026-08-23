@@ -17,6 +17,7 @@ const defaultCareItems = [
   { label: 'Temp', value: 'Not available' },
   { label: 'pH range', value: 'Not available' },
   { label: 'Water space', value: 'Not available' },
+  { label: 'School size', value: 'Not available' },
 ];
 
 export default function FishDetailsScreen() {
@@ -60,6 +61,7 @@ export default function FishDetailsScreen() {
     { label: 'Temp', value: mainSpecies?.bestTempC || defaultCareItems[0].value },
     { label: 'pH range', value: mainSpecies?.phRange || defaultCareItems[1].value },
     { label: 'Water space', value: mainSpecies?.waterSpace || defaultCareItems[2].value },
+    { label: 'School size', value: mainSpecies?.schoolSize || defaultCareItems[3].value },
   ];
 
   return (
@@ -72,6 +74,8 @@ export default function FishDetailsScreen() {
             origin={mainSpecies?.origin}
             lifespan={mainSpecies?.lifespan}
             preferredTempC={mainSpecies?.bestTempC || mainSpecies?.preferredTempC}
+            tankName={mainSpecies?.tankName}
+            phLevel={mainSpecies?.phRange || mainSpecies?.pH}
             feeding={mainSpecies?.feedType || mainSpecies?.feeding}
           />
         </View>

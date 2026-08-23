@@ -16,7 +16,7 @@ export default function CareCards({ cards }: Props) {
       <Text style={styles.sectionTitle}>Species care</Text>
       <View style={styles.grid}>
         {cards.map((card, index) => (
-          <View key={card.label} style={[styles.card, cards.length === 3 && index === 2 ? styles.fullWidthCard : null]}>
+          <View key={card.label} style={styles.card}>
             <Text style={styles.cardLabel}>{card.label}</Text>
             <Text style={styles.cardValue}>{card.value}</Text>
           </View>
@@ -49,9 +49,6 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.06)',
-  },
-  fullWidthCard: {
-    width: '100%',
   },
   cardLabel: {
     color: '#8F97A6',
