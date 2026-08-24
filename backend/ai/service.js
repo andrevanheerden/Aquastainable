@@ -36,10 +36,11 @@ async function generatePlantData(plant) {
   return { ...parseJsonResponse(result.response), model: result.model };
 }
 
-async function answerAssistant(message, context) {
+async function answerAssistant(message, context, history = []) {
   const result = await groqProvider.generate({
     prompt: assistantPrompt(message, context),
     system: AQUARIUM_SYSTEM_PROMPT,
+    history,
   });
 
   return { answer: result.response, model: result.model };

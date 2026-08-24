@@ -2,10 +2,15 @@ import React, { useMemo, useState } from 'react';
 import { Modal, StyleSheet, View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-const TANKS = ['Main Tank', 'Betta Tank', 'Plant Tank'];
-const SPECIES = ['Fish', 'Plants'];
+type Option = { id: string; label: string; kind: 'tank' | 'fish' | 'plant' };
 
-export default function ActionToggles() {
+type Props = {
+  tanks: Option[];
+  species: Option[];
+  onSelectionChange: (selection: { tankIds: string[]; speciesIds: string[] }) => void;
+};
+
+export default function ActionToggles({ tanks, species, onSelectionChange }: Props) {
   const [tankModalVisible, setTankModalVisible] = useState(false);
   const [speciesModalVisible, setSpeciesModalVisible] = useState(false);
   const [selectedTanks, setSelectedTanks] = useState<string[]>([]);
@@ -17,38 +22,46 @@ export default function ActionToggles() {
     }
 
     if (selectedTanks.length === 1) {
-      return selectedTanks[0];
+      return tanks.find((tank) => tank.id === selectedTanks[0])?.label || 'Select Tanks';
     }
 
-    return `${selectedTanks[0]} +${selectedTanks.length - 1}`;
-  }, [selectedTanks]);
+    return `${tanks.find((tank) => tank.id === selectedTanks[0])?.label || 'Tank'} +${selectedTanks.length - 1}`;
+  }, [selectedTanks, tanks]);
   const speciesLabel = useMemo(() => {
     if (selectedSpecies.length === 0) {
       return 'Select Species';
     }
 
     if (selectedSpecies.length === 1) {
-      return selectedSpecies[0];
+      return species.find((item) => item.id === selectedSpecies[0])?.label || 'Select Species';
     }
 
-    return `${selectedSpecies[0]} +${selectedSpecies.length - 1}`;
-  }, [selectedSpecies]);
+    return `${species.find((item) => item.id === selectedSpecies[0])?.label || 'Species'} +${selectedSpecies.length - 1}`;
+  }, [selectedSpecies, species]);
 
   const toggleTank = (tank: string) => {
     setSelectedTanks((current) => {
       if (current.includes(tank)) {
-        return current.filter((item) => item !== tank);
+        const next = current.filter((item) => item !== tank);
+        onSelectionChange({ tankIds: next, speciesIds: selectedSpecies });
+        return next;
       }
-      return [...current, tank];
+      const next = [...current, tank];
+      onSelectionChange({ tankIds: next, speciesIds: selectedSpecies });
+      return next;
     });
   };
 
   const toggleSpecies = (species: string) => {
     setSelectedSpecies((current) => {
       if (current.includes(species)) {
-        return current.filter((item) => item !== species);
+        const next = current.filter((item) => item !== species);
+        onSelectionChange({ tankIds: selectedTanks, speciesIds: next });
+        return next;
       }
-      return [...current, species];
+        const next = [...current, species];
+        onSelectionChange({ tankIds: selectedTanks, speciesIds: next });
+        return next;
     });
   };
 
@@ -69,15 +82,15 @@ export default function ActionToggles() {
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>Choose tank</Text>
             <View style={styles.pillGrid}>
-              {TANKS.map((tank) => {
-                const isSelected = selectedTanks.includes(tank);
+              {tanks.map((tank) => {
+                const isSelected = selectedTanks.includes(tank.id);
                 return (
                   <TouchableOpacity
-                    key={tank}
+                    key={tank.id}
                     style={[styles.optionPill, isSelected && styles.selectedOptionPill]}
-                    onPress={() => toggleTank(tank)}
+                    onPress={() => toggleTank(tank.id)}
                   >
-                    <Text style={[styles.optionText, isSelected && styles.selectedOptionText]}>{tank}</Text>
+                    <Text style={[styles.optionText, isSelected && styles.selectedOptionText]}>{tank.label}</Text>
                   </TouchableOpacity>
                 );
               })}
@@ -91,15 +104,15 @@ export default function ActionToggles() {
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>Choose species</Text>
             <View style={styles.pillGrid}>
-              {SPECIES.map((species) => {
-                const isSelected = selectedSpecies.includes(species);
+              {species.map((speciesOption) => {
+                const isSelected = selectedSpecies.includes(speciesOption.id);
                 return (
                   <TouchableOpacity
-                    key={species}
+                    key={speciesOption.id}
                     style={[styles.optionPill, isSelected && styles.selectedOptionPill]}
-                    onPress={() => toggleSpecies(species)}
+                    onPress={() => toggleSpecies(speciesOption.id)}
                   >
-                    <Text style={[styles.optionText, isSelected && styles.selectedOptionText]}>{species}</Text>
+                    <Text style={[styles.optionText, isSelected && styles.selectedOptionText]}>{speciesOption.label}</Text>
                   </TouchableOpacity>
                 );
               })}

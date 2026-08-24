@@ -18,7 +18,7 @@ function ensureConfigured() {
   }
 }
 
-async function generate({ prompt, system, format }) {
+async function generate({ prompt, system, format, history = [], maxTokens }) {
   ensureConfigured();
 
   const response = await axios.post(
@@ -27,9 +27,11 @@ async function generate({ prompt, system, format }) {
       model: config.model,
       messages: [
         { role: 'system', content: system || '' },
+        ...history.filter((message) => message && (message.role === 'user' || message.role === 'assistant')),
         { role: 'user', content: prompt },
       ],
       temperature: 0.2,
+      ...(maxTokens ? { max_tokens: maxTokens } : {}),
       ...(format === 'json' ? { response_format: { type: 'json_object' } } : {}),
     },
     { headers: getHeaders(), timeout: config.timeoutMs }

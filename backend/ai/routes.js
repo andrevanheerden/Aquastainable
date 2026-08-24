@@ -4,6 +4,33 @@ const aiService = require('./service');
 function createAiRouter({ db } = {}) {
   const router = express.Router();
 
+  const chatsCollection = (userId) => db.collection('users').doc(String(userId)).collection('Chats');
+
+  router.get('/assistant/chats', async (req, res) => {
+    try {
+      const userId = String(req.query.userId || '').trim();
+      if (!userId || !db) return res.status(400).json({ error: 'userId is required.' });
+      const snapshot = await chatsCollection(userId).orderBy('updatedAt', 'desc').get();
+      return res.status(200).json(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
+    } catch (error) {
+      return res.status(500).json({ error: error.message || 'Unable to load chats.' });
+    }
+  });
+
+  router.get('/assistant/chats/:chatId', async (req, res) => {
+    try {
+      const userId = String(req.query.userId || '').trim();
+      if (!userId || !db) return res.status(400).json({ error: 'userId is required.' });
+      const chatRef = chatsCollection(userId).doc(req.params.chatId);
+      const chatDoc = await chatRef.get();
+      if (!chatDoc.exists) return res.status(404).json({ error: 'Chat not found.' });
+      const messages = await chatRef.collection('messages').orderBy('createdAt', 'asc').get();
+      return res.status(200).json({ id: chatDoc.id, ...chatDoc.data(), messages: messages.docs.map((doc) => ({ id: doc.id, ...doc.data() })) });
+    } catch (error) {
+      return res.status(500).json({ error: error.message || 'Unable to load chat.' });
+    }
+  });
+
   router.get('/health', async (req, res) => {
     return res.status(200).json(await aiService.health());
   });
@@ -120,8 +147,27 @@ function createAiRouter({ db } = {}) {
       if (!message) {
         return res.status(400).json({ error: 'message is required.' });
       }
+      const userId = String(req.body?.userId || '').trim();
+      const context = req.body?.context || {};
+      const history = Array.isArray(req.body?.history) ? req.body.history.slice(-20) : [];
+      const result = await aiService.answerAssistant(message, context, history);
 
-      return res.status(200).json(await aiService.answerAssistant(message, req.body?.context || {}));
+      if (db && userId) {
+        const chats = chatsCollection(userId);
+        const chatRef = req.body?.chatId ? chats.doc(String(req.body.chatId)) : chats.doc();
+        const chatDoc = await chatRef.get();
+        const now = new Date().toISOString();
+        if (!chatDoc.exists) {
+          await chatRef.set({ title: message.slice(0, 60), createdAt: now, updatedAt: now });
+        } else {
+          await chatRef.update({ updatedAt: now });
+        }
+        const messageRef = chatRef.collection('messages').doc();
+        await messageRef.set({ question: message, answer: result.answer, context, createdAt: now });
+        return res.status(200).json({ ...result, chatId: chatRef.id, messageId: messageRef.id });
+      }
+
+      return res.status(200).json(result);
     } catch (error) {
       console.error('AI assistant error:', error);
       return res.status(502).json({ error: error.message || 'Remote AI is unavailable.' });
