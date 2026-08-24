@@ -214,7 +214,7 @@ function HoldLogoutItem({ onPressIn, onPressOut, progress }: { onPressIn: () => 
       accessibilityLabel="Hold to log out"
     >
       <Animated.View style={[styles.logoutFill, { width: fillWidth }]} />
-      <IconSymbol size={22} name="rectangle.portrait.and.arrow.right" color="#5B8CFF" />
+      <IconSymbol size={22} name="rectangle.portrait.and.arrow.right" color="#FFFFFF" />
       <Text style={styles.logoutLabel}>Hold to log out</Text>
     </TouchableOpacity>
   );
@@ -273,7 +273,7 @@ function DrawerItem({
       <IconSymbol
         size={22}
         name={icon as any}
-        color="#2E8CA6"
+        color="#FFFFFF"
       />
       <Text style={[styles.itemLabel, isActive && styles.activeItemLabel]}>
         {label}
