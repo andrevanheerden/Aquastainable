@@ -4,7 +4,7 @@ import { Feather } from '@expo/vector-icons';
 
 const AnimatedView = Animated.View as React.ComponentType<any>;
 
-export function HoldIconButton({ onHold, icon, label }: { onHold: () => void; icon: any; label: string }) {
+export function HoldIconButton({ onHold, icon, label, fillColor = 'rgba(46, 140, 166, 0.75)', iconColor = '#FFFFFF' }: { onHold: () => void; icon: any; label: string; fillColor?: string; iconColor?: string }) {
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const progress = useRef(new Animated.Value(0)).current;
 
@@ -31,9 +31,9 @@ export function HoldIconButton({ onHold, icon, label }: { onHold: () => void; ic
       activeOpacity={0.75}
       accessibilityLabel={label}
     >
-      <AnimatedView style={[styles.holdFill, { transform: [{ scaleX: progress }] }]} pointerEvents="none" />
+      <AnimatedView style={[styles.holdFill, { backgroundColor: fillColor, transform: [{ scaleX: progress }] }]} pointerEvents="none" />
       <View style={styles.iconContent} pointerEvents="none">
-        <Feather name={icon} size={20} color="#FFFFFF" />
+        <Feather name={icon} size={20} color={iconColor} />
       </View>
     </TouchableOpacity>
   );

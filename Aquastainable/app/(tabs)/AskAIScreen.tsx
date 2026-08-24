@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Modal, ScrollView, StyleSheet, SafeAreaView, Text, View, TouchableOpacity } from 'react-native';
+import { ActivityIndicator, Alert, Modal, ScrollView, StyleSheet, SafeAreaView, Text, View, TouchableOpacity } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { onAuthStateChanged } from 'firebase/auth';
 import { Feather } from '@expo/vector-icons';
@@ -43,7 +43,7 @@ export default function AskAIScreen() {
   const { getUserTanks } = useTankApi();
   const { getUserFish } = useFishApi();
   const { getUserPlants } = usePlantApi();
-  const { askAssistant, getChats, getChat, loading } = useAiApi();
+  const { askAssistant, getChats, getChat, deleteChat, loading } = useAiApi();
 
   useEffect(() => onAuthStateChanged(auth, (user) => setUserId(user?.uid ?? null)), []);
   useEffect(() => {
@@ -68,6 +68,21 @@ export default function AskAIScreen() {
     setChatId(fullChat.id);
     setMessages(fullChat.messages || []);
     setHistoryVisible(false);
+  };
+
+  const removeChat = async (selectedChat: AiChat) => {
+    if (!userId) return;
+    try {
+      await deleteChat(userId, selectedChat.id);
+      setChats((current) => current.filter((chat) => chat.id !== selectedChat.id));
+      if (chatId === selectedChat.id) {
+        setChatId(undefined);
+        setMessages([]);
+      }
+      Alert.alert('Chat deleted', 'The chat and its messages were deleted.');
+    } catch (error) {
+      Alert.alert('Could not delete chat', error instanceof Error ? error.message : 'Please try again.');
+    }
   };
 
   const getCurrentContext = () => ({
@@ -182,14 +197,17 @@ export default function AskAIScreen() {
             </View>
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.historyList}>
               {chats.length ? chats.map((chat) => (
-                <TouchableOpacity key={chat.id} style={styles.chatRow} onPress={() => openChat(chat)} activeOpacity={0.75}>
-                  <View style={styles.chatIcon}><Feather name="message-circle" size={18} color="#A8C4CB" /></View>
-                  <View style={styles.chatDetails}>
-                    <Text style={styles.chatTitle} numberOfLines={1}>{chat.title}</Text>
-                    <Text style={styles.chatDate}>{new Date(chat.updatedAt).toLocaleDateString()}</Text>
-                  </View>
-                  <Feather name="chevron-right" size={18} color="rgba(255,255,255,0.45)" />
-                </TouchableOpacity>
+                <View key={chat.id} style={styles.chatRow}>
+                  <TouchableOpacity style={styles.chatOpen} onPress={() => openChat(chat)} activeOpacity={0.75}>
+                    <View style={styles.chatIcon}><Feather name="message-circle" size={18} color="#A8C4CB" /></View>
+                    <View style={styles.chatDetails}>
+                      <Text style={styles.chatTitle} numberOfLines={1}>{chat.title}</Text>
+                      <Text style={styles.chatDate}>{new Date(chat.updatedAt).toLocaleDateString()}</Text>
+                    </View>
+                    <Feather name="chevron-right" size={18} color="rgba(255,255,255,0.45)" />
+                  </TouchableOpacity>
+                  <HoldIconButton onHold={() => { void removeChat(chat); }} icon="trash-2" fillColor="rgba(235, 87, 87, 0.9)" label={`Hold to delete ${chat.title}`} />
+                </View>
               )) : <Text style={styles.emptyChats}>Your saved conversations will appear here.</Text>}
             </ScrollView>
             <TouchableOpacity style={styles.newChatButton} onPress={() => { setChatId(undefined); setMessages([]); setHistoryVisible(false); }} activeOpacity={0.8}>
@@ -321,6 +339,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.08)',
   },
+  chatOpen: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   chatIcon: {
     width: 38,
     height: 38,
@@ -332,6 +355,15 @@ const styles = StyleSheet.create({
   },
   chatDetails: {
     flex: 1,
+  },
+  deleteButton: {
+    width: 38,
+    height: 38,
+    marginLeft: 10,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(235,87,87,0.12)',
   },
   chatTitle: {
     color: '#FFFFFF',

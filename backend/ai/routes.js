@@ -31,6 +31,29 @@ function createAiRouter({ db } = {}) {
     }
   });
 
+  router.delete('/assistant/chats/:chatId', async (req, res) => {
+    try {
+      const userId = String(req.query.userId || '').trim();
+      if (!userId) return res.status(400).json({ error: 'userId is required.' });
+      if (!db) return res.status(503).json({ error: 'Chat storage is unavailable until the database is configured.' });
+
+      const chatRef = chatsCollection(userId).doc(req.params.chatId);
+      const chatDoc = await chatRef.get();
+      if (!chatDoc.exists) return res.status(404).json({ error: 'Chat not found.' });
+
+      const messages = await chatRef.collection('messages').get();
+      for (let index = 0; index < messages.docs.length; index += 450) {
+        const batch = db.batch();
+        messages.docs.slice(index, index + 450).forEach((message) => batch.delete(message.ref));
+        await batch.commit();
+      }
+      await chatRef.delete();
+      return res.status(204).send();
+    } catch (error) {
+      return res.status(500).json({ error: error.message || 'Unable to delete chat.' });
+    }
+  });
+
   router.get('/health', async (req, res) => {
     return res.status(200).json(await aiService.health());
   });

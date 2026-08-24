@@ -4,6 +4,8 @@ import {
   Dimensions,
   FlatList,
   Image,
+  Alert,
+  Modal,
   NativeScrollEvent,
   NativeSyntheticEvent,
   SafeAreaView,
@@ -12,10 +14,12 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
+  TextInput,
   View,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { onAuthStateChanged } from 'firebase/auth';
+import * as ImagePicker from 'expo-image-picker';
 
 import HeaderRow from '@/components/tank/HeaderRow';
 import OverviewSection from '@/components/tank/OverviewSection';
@@ -59,7 +63,7 @@ function mapApiSpecies(item: any, type: Species['type']): Species {
 export default function TankInfoScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const { getTankById, getTankOverview } = useTankApi();
+  const { getTankById, getTankOverview, updateTank } = useTankApi();
   const { getTankFish } = useFishApi();
   const { getUserPlants } = usePlantApi();
   const { getTankWaterTests } = useWaterTestApi();
@@ -68,6 +72,9 @@ export default function TankInfoScreen() {
   const [loading, setLoading] = useState(true);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [activeIndex, setActiveIndex] = useState(0);
+  const [editVisible, setEditVisible] = useState(false);
+  const [editForm, setEditForm] = useState({ tankName: '', tankSize: '', tankImg: '' });
+  const [savingEdit, setSavingEdit] = useState(false);
   const speciesListRef = useRef<FlatList<Species>>(null);
 
   // Get current user
@@ -186,13 +193,52 @@ export default function TankInfoScreen() {
   const activeSpecies = tank.species[activeIndex] || tank.species[0];
   const tankImageSource = tank.tankImg ? { uri: tank.tankImg } : null;
 
+  const openEditModal = () => {
+    setEditForm({ tankName: tank.tankName, tankSize: String(tank.tankSize || ''), tankImg: tank.tankImg || '' });
+    setEditVisible(true);
+  };
+
+  const pickTankImage = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      quality: 0.8,
+      base64: true,
+    });
+    if (!result.canceled && result.assets?.[0]) {
+      const asset = result.assets[0];
+      setEditForm((current) => ({ ...current, tankImg: asset.base64 ? `data:image/jpeg;base64,${asset.base64}` : asset.uri }));
+    }
+  };
+
+  const saveTankEdits = async () => {
+    if (!currentUserId || !tank) return;
+    const tankName = editForm.tankName.trim();
+    const tankSize = Number(editForm.tankSize);
+    if (!tankName || !Number.isFinite(tankSize) || tankSize <= 0) {
+      Alert.alert('Missing details', 'Enter a tank name and a size greater than zero.');
+      return;
+    }
+
+    setSavingEdit(true);
+    try {
+      const updatedTank = await updateTank(currentUserId, tank.tankId, { tankName, tankSize, tankImg: editForm.tankImg });
+      setTank((current) => current ? { ...current, tankName: updatedTank.tankName, tankSize: updatedTank.tankSize, tankImg: updatedTank.tankImg } : current);
+      setEditVisible(false);
+    } catch (error) {
+      Alert.alert('Tank update failed', error instanceof Error ? error.message : 'Please try again.');
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#121214" />
       <SafeAreaView style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           
-          <HeaderRow onBack={() => router.back()} onMenu={() => {}} />
+          <HeaderRow onBack={() => router.back()} onMenu={openEditModal} />
 
           {/* Title + Subtitle */}
           <Text style={styles.tankName}>{tank.tankName}</Text>
@@ -266,6 +312,35 @@ export default function TankInfoScreen() {
 
         </ScrollView>
       </SafeAreaView>
+      <Modal visible={editVisible} transparent animationType="fade" onRequestClose={() => setEditVisible(false)}>
+        <View style={styles.editBackdrop}>
+          <View style={styles.editCard}>
+            <View style={styles.editHeader}>
+              <View>
+                <Text style={styles.editEyebrow}>TANK DETAILS</Text>
+                <Text style={styles.editTitle}>Edit tank</Text>
+              </View>
+              <TouchableOpacity style={styles.editClose} onPress={() => setEditVisible(false)} accessibilityLabel="Close edit tank">
+                <Text style={styles.editCloseText}>X</Text>
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity style={styles.editImageBox} onPress={pickTankImage} activeOpacity={0.8}>
+              {editForm.tankImg ? <Image source={{ uri: editForm.tankImg }} style={styles.editImage} resizeMode="cover" /> : <Text style={styles.editImageText}>Add tank image</Text>}
+              <View style={styles.editImageBadge}><Text style={styles.editImageBadgeText}>Change</Text></View>
+            </TouchableOpacity>
+
+            <Text style={styles.editLabel}>Tank name</Text>
+            <TextInput value={editForm.tankName} onChangeText={(value) => setEditForm((current) => ({ ...current, tankName: value }))} placeholder="Tank name" placeholderTextColor="#6E7684" style={styles.editInput} />
+            <Text style={styles.editLabel}>Tank size (litres)</Text>
+            <TextInput value={editForm.tankSize} onChangeText={(value) => setEditForm((current) => ({ ...current, tankSize: value }))} placeholder="20" placeholderTextColor="#6E7684" keyboardType="numeric" style={styles.editInput} />
+
+            <TouchableOpacity style={styles.saveEditButton} onPress={saveTankEdits} disabled={savingEdit} activeOpacity={0.8}>
+              <Text style={styles.saveEditText}>{savingEdit ? 'Saving...' : 'Save changes'}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -415,6 +490,113 @@ const styles = StyleSheet.create({
   dotActive: {
     backgroundColor: '#FFFFFF',
     width: 16,
+  },
+
+  editBackdrop: {
+    flex: 1,
+    justifyContent: 'center',
+    padding: 18,
+    backgroundColor: 'rgba(7,12,21,0.78)',
+  },
+  editCard: {
+    maxHeight: '90%',
+    padding: 22,
+    borderRadius: 24,
+    backgroundColor: '#16151A',
+    borderWidth: 1,
+    borderColor: 'rgba(168,196,203,0.18)',
+  },
+  editHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 18,
+  },
+  editEyebrow: {
+    color: '#6C98A0',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1.5,
+    marginBottom: 5,
+  },
+  editTitle: {
+    color: '#FFFFFF',
+    fontSize: 24,
+    fontWeight: '800',
+  },
+  editClose: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+  editCloseText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  editImageBox: {
+    height: 150,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 18,
+    overflow: 'hidden',
+    backgroundColor: '#1B1D26',
+  },
+  editImage: {
+    width: '100%',
+    height: '100%',
+  },
+  editImageText: {
+    color: '#A8C4CB',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  editImageBadge: {
+    position: 'absolute',
+    right: 10,
+    bottom: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+    backgroundColor: 'rgba(0,0,0,0.65)',
+  },
+  editImageBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  editLabel: {
+    color: '#A8C4CB',
+    fontSize: 12,
+    fontWeight: '700',
+    marginBottom: 7,
+  },
+  editInput: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginBottom: 14,
+    borderRadius: 14,
+    backgroundColor: '#1B1D26',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  saveEditButton: {
+    alignItems: 'center',
+    paddingVertical: 14,
+    marginTop: 4,
+    borderRadius: 15,
+    backgroundColor: '#2E8CA6',
+  },
+  saveEditText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '800',
   },
 
   // Action Button removed

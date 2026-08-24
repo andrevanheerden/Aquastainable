@@ -45,7 +45,7 @@ export function useTankApi() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const requestApi = useCallback(async <T>(method: 'get' | 'post', path: string, payload?: object) => {
+  const requestApi = useCallback(async <T>(method: 'get' | 'post' | 'patch', path: string, payload?: object) => {
     setError('');
     setLoading(true);
 
@@ -82,13 +82,17 @@ export function useTankApi() {
     return requestApi<TankRecord>('get', `/tanks/${userId}/${tankId}`);
   }, [requestApi]);
 
+  const updateTank = useCallback(async (userId: string, tankId: string, payload: Pick<TankApiPayload, 'tankName' | 'tankSize' | 'tankImg'>) => {
+    return requestApi<TankRecord>('patch', `/tanks/${userId}/${tankId}`, payload);
+  }, [requestApi]);
+
   const getTankOverview = useCallback(async (userId: string, tankId: string) => {
     return requestApi<TankOverviewResponse>('post', '/ai/tank-overview', { userId, tankId });
   }, [requestApi]);
 
   const clearError = useCallback(() => setError(''), []);
 
-  return { loading, error, clearError, createTank, getUserTanks, getTankById, getTankOverview };
+  return { loading, error, clearError, createTank, getUserTanks, getTankById, updateTank, getTankOverview };
 }
 
 export default useTankApi;

@@ -300,6 +300,40 @@ app.post('/tanks', async (req, res) => {
   }
 });
 
+app.patch('/tanks/:userId/:tankId', async (req, res) => {
+  try {
+    if (!db) return res.status(503).json({ error: 'Database is not configured.' });
+
+    const { userId, tankId } = req.params;
+    const tankRef = db.collection('tanks').doc(String(tankId));
+    const tankDoc = await tankRef.get();
+    if (!tankDoc.exists) return res.status(404).json({ error: 'Tank not found.' });
+    if (tankDoc.data().user_id !== userId) return res.status(403).json({ error: 'Tank does not belong to this user.' });
+
+    const updates = {};
+    if (req.body?.tankName !== undefined) {
+      const tankName = String(req.body.tankName).trim();
+      if (!tankName) return res.status(400).json({ error: 'tankName is required.' });
+      updates.tankName = tankName;
+    }
+    if (req.body?.tankSize !== undefined) {
+      const tankSize = Number(req.body.tankSize);
+      if (!Number.isFinite(tankSize) || tankSize <= 0) return res.status(400).json({ error: 'tankSize must be a number greater than 0.' });
+      updates.tankSize = tankSize;
+    }
+    if (req.body?.tankImg !== undefined) {
+      updates.tankImg = await uploadTankImageToCloudinary(String(req.body.tankImg || '').trim());
+    }
+    if (!Object.keys(updates).length) return res.status(400).json({ error: 'No tank changes supplied.' });
+
+    await tankRef.update(updates);
+    return res.status(200).json({ id: tankDoc.id, ...tankDoc.data(), ...updates });
+  } catch (error) {
+    console.error('Tank update error:', error);
+    return res.status(400).json({ error: error.message || 'Failed to update tank.' });
+  }
+});
+
 app.get('/tanks/:userId', async (req, res) => {
   try {
     const userId = req.params.userId;

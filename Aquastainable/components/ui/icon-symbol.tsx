@@ -21,6 +21,7 @@ const MAPPING = {
   'drop.fill': 'water',
   sparkles: 'auto-awesome',
   'rectangle.portrait.and.arrow.right': 'logout',
+  pencil: 'edit',
   'chevron.left.forwardslash.chevron.right': 'code',
   'chevron.right': 'chevron-right',
 } as IconMapping;
