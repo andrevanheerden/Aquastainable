@@ -114,6 +114,7 @@ export default function TankInfoScreen() {
             const convertedTank: TankDetail = {
               tankId: apiTank.tankId || apiTank.id,
               tankName: apiTank.tankName,
+              tankSize: apiTank.tankSize,
               tankImg: apiTank.tankImg,
                 overviewSummary: overview,
               conditions: {
@@ -229,7 +230,7 @@ export default function TankInfoScreen() {
 
           <OverviewSection overview={tank.overviewSummary} />
 
-          <NeedToKnow conditions={tank.conditions} />
+          <NeedToKnow conditions={tank.conditions} tankSize={tank.tankSize} />
 
           <WaterTestCard
             conditions={tank.conditions}

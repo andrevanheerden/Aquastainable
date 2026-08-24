@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, Image, Modal, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Animated, Image, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 type Props = {
   image: number | { uri: string };
@@ -158,19 +158,21 @@ export default function FishLogCard({ image, name, age, health, description }: P
                   <Text style={styles.modalValue}>{health}</Text>
                 </View>
               </View>
-              {isEditing ? (
-                <TextInput
-                  value={draftDescription}
-                  onChangeText={setDraftDescription}
-                  style={[styles.editDescriptionInput, styles.description]}
-                  placeholder="Fish story or description"
-                  placeholderTextColor="#6E7684"
-                  multiline
-                  textAlignVertical="top"
-                />
-              ) : (
-                <Text style={styles.description}>{fishDescription}</Text>
-              )}
+              <ScrollView style={styles.storyScroll} showsVerticalScrollIndicator>
+                {isEditing ? (
+                  <TextInput
+                    value={draftDescription}
+                    onChangeText={setDraftDescription}
+                    style={styles.editDescriptionInput}
+                    placeholder="Fish story or description"
+                    placeholderTextColor="#6E7684"
+                    multiline
+                    textAlignVertical="top"
+                  />
+                ) : (
+                  <Text style={styles.description}>{fishDescription}</Text>
+                )}
+              </ScrollView>
               <TouchableOpacity
                 style={styles.editButton}
                 onPressIn={isEditing ? undefined : startEditHold}
@@ -317,10 +319,14 @@ const styles = StyleSheet.create({
     color: '#B3B9C9',
     fontSize: 15,
     lineHeight: 22,
+    paddingBottom: 20,
+  },
+  storyScroll: {
+    height: 150,
     marginBottom: 20,
   },
   editDescriptionInput: {
-    minHeight: 90,
+    minHeight: 110,
     borderRadius: 12,
     backgroundColor: '#1B1D26',
     padding: 12,

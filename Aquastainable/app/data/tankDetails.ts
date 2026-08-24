@@ -27,6 +27,7 @@ export type TankConditions = {
 export type TankDetail = {
   tankId: string;
   tankName: string;
+  tankSize?: number;
   tankImg?: string;
   overviewSummary: string;
   conditions: TankConditions;
