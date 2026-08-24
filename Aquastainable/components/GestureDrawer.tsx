@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   StyleSheet,
   View,
@@ -10,8 +10,10 @@ import {
   PanResponder,
 } from 'react-native';
 import { useRouter, usePathname } from 'expo-router';
+import { onAuthStateChanged, signOut, User } from 'firebase/auth';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors } from '@/constants/theme';
+import { auth } from '@/firebase';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const DRAWER_WIDTH = SCREEN_WIDTH * 0.78;
@@ -24,9 +26,22 @@ export function GestureDrawer({ children }: GestureDrawerProps) {
   const router = useRouter();
   const currentPath = usePathname();
   const [drawerPosition, setDrawerPosition] = useState(-DRAWER_WIDTH);
+  const [user, setUser] = useState<User | null>(null);
   const dragStartPosition = useRef(-DRAWER_WIDTH);
   const drawerPositionRef = useRef(-DRAWER_WIDTH);
   const isDraggingRef = useRef(false);
+  const logoutHoldProgress = useRef(new Animated.Value(0)).current;
+  const logoutHoldTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, setUser);
+    return () => {
+      unsubscribe();
+      if (logoutHoldTimer.current) {
+        clearTimeout(logoutHoldTimer.current);
+      }
+    };
+  }, []);
 
   const openDrawer = () => {
     drawerPositionRef.current = 0;
@@ -83,6 +98,37 @@ export function GestureDrawer({ children }: GestureDrawerProps) {
   const backdropOpacity = Math.min(0.65, Math.max(0, (drawerPosition + DRAWER_WIDTH) / DRAWER_WIDTH));
   const handleOpacity = Math.max(0, Math.min(1, 1 - (drawerPosition + DRAWER_WIDTH + 10) / 40));
   const pointerEvents = drawerPosition > -DRAWER_WIDTH + 10 ? 'auto' : 'none';
+  const userName = user?.displayName?.trim() || user?.email?.split('@')[0] || 'User';
+  const userInitials = userName
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0].toUpperCase())
+    .join('');
+
+  const startLogoutHold = () => {
+    logoutHoldProgress.setValue(0);
+    Animated.timing(logoutHoldProgress, {
+      toValue: 1,
+      duration: 500,
+      useNativeDriver: false,
+    }).start();
+    logoutHoldTimer.current = setTimeout(async () => {
+      logoutHoldTimer.current = null;
+      await signOut(auth);
+      closeDrawer();
+      router.replace('/signin');
+    }, 500);
+  };
+
+  const cancelLogoutHold = () => {
+    if (logoutHoldTimer.current) {
+      clearTimeout(logoutHoldTimer.current);
+      logoutHoldTimer.current = null;
+    }
+    logoutHoldProgress.stopAnimation();
+    logoutHoldProgress.setValue(0);
+  };
 
   const navigateTo = (path: string) => {
     closeDrawer();
@@ -104,13 +150,10 @@ export function GestureDrawer({ children }: GestureDrawerProps) {
 
         <View style={styles.drawerInnerContent}>
           <View style={styles.profileSection}>
-            <Image
-              source={{ uri: 'https://i.pinimg.com/736x/6b/49/8c/6b498c90c678a15eb1675ac8476407b9.jpg' }}
-              style={styles.avatar}
-            />
+            {user?.photoURL ? <Image source={{ uri: user.photoURL }} style={styles.avatar} /> : <View style={styles.avatarFallback}><Text style={styles.avatarInitials}>{userInitials}</Text></View>}
             <View style={styles.profileTextContainer}>
-              <Text style={styles.userName}>André van Heerden</Text>
-              <Text style={styles.userRole}>3 Active Aquariums</Text>
+              <Text style={styles.userName}>{userName}</Text>
+              <Text style={styles.userRole}>{user?.email || 'Account'}</Text>
             </View>
           </View>
 
@@ -151,11 +194,29 @@ export function GestureDrawer({ children }: GestureDrawerProps) {
 
           <View style={styles.footerSection}>
             <View style={styles.divider} />
-            <DrawerItem icon="gearshape.fill" label="Settings & Account" isActive={false} onPress={() => {}} />
+            <HoldLogoutItem onPressIn={startLogoutHold} onPressOut={cancelLogoutHold} progress={logoutHoldProgress} />
           </View>
         </View>
       </Animated.View>
     </View>
+  );
+}
+
+function HoldLogoutItem({ onPressIn, onPressOut, progress }: { onPressIn: () => void; onPressOut: () => void; progress: Animated.Value }) {
+  const fillWidth = progress.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] });
+
+  return (
+    <TouchableOpacity
+      style={styles.logoutItem}
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
+      activeOpacity={0.85}
+      accessibilityLabel="Hold to log out"
+    >
+      <Animated.View style={[styles.logoutFill, { width: fillWidth }]} />
+      <IconSymbol size={22} name="rectangle.portrait.and.arrow.right" color="#5B8CFF" />
+      <Text style={styles.logoutLabel}>Hold to log out</Text>
+    </TouchableOpacity>
   );
 }
 
@@ -171,16 +232,48 @@ function DrawerItem({
   isActive: boolean;
   onPress: () => void;
 }) {
+  const holdProgress = useRef(new Animated.Value(0)).current;
+  const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => {
+    if (holdTimer.current) {
+      clearTimeout(holdTimer.current);
+    }
+  }, []);
+
+  const startHold = () => {
+    holdProgress.setValue(0);
+    Animated.timing(holdProgress, { toValue: 1, duration: 500, useNativeDriver: false }).start();
+    holdTimer.current = setTimeout(() => {
+      holdTimer.current = null;
+      onPress();
+    }, 500);
+  };
+
+  const cancelHold = () => {
+    if (holdTimer.current) {
+      clearTimeout(holdTimer.current);
+      holdTimer.current = null;
+    }
+    holdProgress.stopAnimation();
+    holdProgress.setValue(0);
+  };
+
+  const holdFillWidth = holdProgress.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] });
+
   return (
     <TouchableOpacity
       style={[styles.itemContainer, isActive && styles.activeItemContainer]}
-      onPress={onPress}
+      onPressIn={startHold}
+      onPressOut={cancelHold}
       activeOpacity={0.7}
+      accessibilityLabel={`Hold to open ${label}`}
     >
+      <Animated.View style={[styles.itemHoldFill, { width: holdFillWidth }]} />
       <IconSymbol
         size={22}
         name={icon as any}
-        color={isActive ? Colors.primary : Colors.lightBlue}
+        color="#2E8CA6"
       />
       <Text style={[styles.itemLabel, isActive && styles.activeItemLabel]}>
         {label}
@@ -252,6 +345,21 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: Colors.primary,
   },
+  avatarFallback: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    borderWidth: 2,
+    borderColor: Colors.primary,
+    backgroundColor: '#2E8CA6',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avatarInitials: {
+    color: Colors.white,
+    fontSize: 17,
+    fontWeight: '800',
+  },
   profileTextContainer: {
     marginLeft: 14,
   },
@@ -283,9 +391,9 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   activeItemContainer: {
-    backgroundColor: 'rgba(214, 22, 75, 0.12)', // Subtle crimson backlight
+    backgroundColor: 'rgba(46, 140, 166, 0.12)',
     borderWidth: 1,
-    borderColor: 'rgba(214, 22, 75, 0.3)',
+    borderColor: 'rgba(46, 140, 166, 0.3)',
   },
   itemLabel: {
     color: Colors.dark.icon,
@@ -297,7 +405,30 @@ const styles = StyleSheet.create({
     color: Colors.dark.text,
     fontWeight: '700',
   },
+  itemHoldFill: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(46, 140, 166, 0.22)',
+  },
   footerSection: {
     marginTop: 'auto',
+  },
+  logoutItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    overflow: 'hidden',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+  },
+  logoutFill: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(46, 140, 166, 0.3)',
+  },
+  logoutLabel: {
+    color: Colors.dark.text,
+    fontSize: 15,
+    fontWeight: '700',
+    marginLeft: 14,
   },
 });
