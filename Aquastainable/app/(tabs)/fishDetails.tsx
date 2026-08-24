@@ -11,8 +11,6 @@ import FishSicknessAssistant, { FishSicknessPrefill } from '@/components/fish&Pl
 import { auth } from '@/firebase';
 import { TankFish, useFishApi } from '@/app/hooks/useFishApi';
 
-const MAIN_FISH_IMAGE = require('../../assets/fishTank/guppy.jpg');
-
 const defaultCareItems = [
   { label: 'Temp', value: 'Not available' },
   { label: 'pH range', value: 'Not available' },
@@ -69,7 +67,7 @@ export default function FishDetailsScreen() {
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={{ marginHorizontal: 0 }}>
           <MainFishDisplay
-            image={mainSpecies?.image || MAIN_FISH_IMAGE}
+            image={mainSpecies?.image}
             title={mainSpecies?.name ?? 'Fish'}
             origin={mainSpecies?.origin}
             lifespan={mainSpecies?.lifespan}

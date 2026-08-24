@@ -29,22 +29,6 @@ import { useTankApi } from '../hooks/useTankApi';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-const aquariumImage1 = require('../../assets/fishTank/FishTankForest.jpeg');
-const aquariumImage2 = require('../../assets/fishTank/FishTankLiveingRoom.jpeg');
-const aquariumImage3 = require('../../assets/fishTank/FishTankTree.jpeg');
-
-const DEFAULT_TANK = {
-  id: 'placeholder',
-  tankId: 'placeholder',
-  user_id: 'guest',
-  tankName: 'Add your first tank',
-  tankImg: '',
-  waterType: 'Freshwater',
-  tankSize: 20,
-  overview: '',
-  aquaCare: {},
-};
-
 const SWIPE_THUMB_SIZE = 52;
 const SWIPE_PADDING = 4;
 
@@ -171,14 +155,14 @@ export default function HomeScreen() {
     })
   ).current;
 
-  const aquarium = tanks[activeIndex] || DEFAULT_TANK;
-  const currentNumber = tanks.length > 0 ? activeIndex + 1 : 1;
-  const tankImage = aquarium.tankImg ? { uri: aquarium.tankImg } : aquariumImage1;
+  const aquarium = tanks[activeIndex];
+  const currentNumber = activeIndex + 1;
+  const tankImage = aquarium?.tankImg ? { uri: aquarium.tankImg } : undefined;
 
   const metricsData = [
-    { id: '1', label: 'WATER TYPE', value: aquarium.waterType || 'Freshwater', accent: Colors.lightBlue },
-    { id: '2', label: 'VOLUME', value: `${Number(aquarium.tankSize || 0)} L`, accent: Colors.white },
-    { id: '3', label: 'OVERVIEW', value: aquarium.overview ? 'Ready' : 'Add info', accent: Colors.lightBlue },
+    { id: '1', label: 'WATER TYPE', value: aquarium?.waterType || 'Not available', accent: Colors.lightBlue },
+    { id: '2', label: 'VOLUME', value: aquarium ? `${Number(aquarium.tankSize || 0)} L` : 'Not available', accent: Colors.white },
+    { id: '3', label: 'OVERVIEW', value: aquarium?.overview ? 'Ready' : 'Not available', accent: Colors.lightBlue },
   ];
 
   const metricPageCount = metricsData.length;
@@ -248,7 +232,7 @@ export default function HomeScreen() {
   return (
     <View style={styles.container} {...screenPanResponder.panHandlers}>
       <StatusBar barStyle="light-content" backgroundColor={Colors.background} />
-      <ImageBackground source={tankImage} style={styles.backgroundImage} resizeMode="cover">
+      {tanks.length > 0 ? <ImageBackground source={tankImage} style={styles.backgroundImage} resizeMode="cover">
         <View style={styles.overlayGradient} />
 
         <SafeAreaView style={styles.contentContainer}>
@@ -267,7 +251,7 @@ export default function HomeScreen() {
               <Text style={styles.statusText}>{tanks.length > 0 ? 'Active' : 'No tank yet'}</Text>
             </View>
 
-            <Text style={styles.aquariumTitle}>{aquarium.tankName}</Text>
+            <Text style={styles.aquariumTitle}>{aquarium?.tankName}</Text>
 
             <View style={styles.metricsCarouselWrap}>
               <FlatList
@@ -314,7 +298,7 @@ export default function HomeScreen() {
             )}
           </View>
         </SafeAreaView>
-      </ImageBackground>
+      </ImageBackground> : <SafeAreaView style={styles.emptyHome}><Text style={styles.emptyHomeText}>No tanks have been added yet.</Text></SafeAreaView>}
 
       <TouchableOpacity
         style={styles.fab}
@@ -406,6 +390,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 40,
     paddingBottom: 30,
+  },
+  emptyHome: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: Colors.background,
+  },
+  emptyHomeText: {
+    color: Colors.white,
+    fontSize: 16,
   },
   topHeader: {
     flexDirection: 'row',

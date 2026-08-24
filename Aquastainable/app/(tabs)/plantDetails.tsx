@@ -9,8 +9,6 @@ import CareCards from '@/components/fish&Plants/CareCards';
 import { auth } from '@/firebase';
 import { SavedPlant, usePlantApi } from '@/app/hooks/usePlantApi';
 
-const MAIN_PLANT_IMAGE = require('../../assets/fishTank/duckweed.jpeg');
-
 export default function PlantDetailsScreen() {
   const { speciesId } = useLocalSearchParams<{ speciesId?: string }>();
   const { getUserPlants } = usePlantApi();
@@ -33,7 +31,7 @@ export default function PlantDetailsScreen() {
       .finally(() => setLoading(false));
   }, [currentUserId, getUserPlants]);
 
-  const mainPlant = plants.find((plant) => plant.id === speciesId);
+  const mainPlant = plants.find((plant) => plant.id === speciesId || plant.plantId === speciesId);
   const careItems = mainPlant ? [
     { label: 'Light', value: mainPlant.light || 'Not available' },
     { label: 'Growth', value: mainPlant.growthRate || 'Not available' },
@@ -46,7 +44,7 @@ export default function PlantDetailsScreen() {
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={{ marginHorizontal: 0 }}>
           <MainFishDisplay
-            image={mainPlant?.image ? { uri: mainPlant.image } : MAIN_PLANT_IMAGE}
+            image={mainPlant?.image ? { uri: mainPlant.image } : undefined}
             title={mainPlant?.name ?? 'Plant'}
             preferredTempC={mainPlant?.bestTempC}
             tankName={mainPlant?.tankName}

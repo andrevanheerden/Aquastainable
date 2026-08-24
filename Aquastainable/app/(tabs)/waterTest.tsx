@@ -7,12 +7,6 @@ import WaterTestTankSelector from '../../components/waterTest/WaterTestTankSelec
 import { auth } from '@/firebase';
 import { TankRecord, useTankApi } from '../hooks/useTankApi';
 
-const TANK_IMAGES = {
-  '1': require('../../assets/fishTank/FishTankForest.jpeg'),
-  '2': require('../../assets/fishTank/FishTankLiveingRoom.jpeg'),
-  '3': require('../../assets/fishTank/FishTankTree.jpeg'),
-};
-
 export default function WaterTestScreen() {
   const router = useRouter();
   const { getUserTanks } = useTankApi();
@@ -42,7 +36,7 @@ export default function WaterTestScreen() {
   const selectorTanks = tanks.map((tank) => ({
     id: tank.tankId || tank.id,
     name: tank.tankName || 'Unnamed tank',
-    image: tank.tankImg ? { uri: tank.tankImg } : TANK_IMAGES[tank.tankId] ?? TANK_IMAGES['1'],
+    image: tank.tankImg ? { uri: tank.tankImg } : undefined,
     testDate: tank.testDate || '~',
     waterQuality: tank.waterQuality || '~',
   }));

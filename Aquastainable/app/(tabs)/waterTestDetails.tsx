@@ -10,12 +10,6 @@ import { auth } from '@/firebase';
 import { useTankApi } from '../hooks/useTankApi';
 import useWaterTestApi, { WaterTestRecord } from '../hooks/useWaterTestApi';
 
-const TANK_IMAGES = {
-  '1': require('../../assets/fishTank/FishTankForest.jpeg'),
-  '2': require('../../assets/fishTank/FishTankLiveingRoom.jpeg'),
-  '3': require('../../assets/fishTank/FishTankTree.jpeg'),
-};
-
 export default function WaterTestDetailsScreen() {
   const { tankId } = useLocalSearchParams<{ tankId?: string }>();
   const { getTankById } = useTankApi();
@@ -25,6 +19,7 @@ export default function WaterTestDetailsScreen() {
   const [loading, setLoading] = useState(true);
   const [addTestVisible, setAddTestVisible] = useState(false);
   const [latestTest, setLatestTest] = useState<WaterTestRecord | null>(null);
+  const [waterTests, setWaterTests] = useState<WaterTestRecord[]>([]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => setCurrentUserId(user?.uid ?? null));
@@ -44,7 +39,9 @@ export default function WaterTestDetailsScreen() {
     setLoading(true);
     Promise.all([getTankById(currentUserId, tankId), getTankWaterTests(tankId).catch(() => [])])
       .then(([apiTank, tests]) => {
-        const newestTest = [...tests].sort((left, right) => right.testedAt.localeCompare(left.testedAt))[0] || null;
+        const sortedTests = [...tests].sort((left, right) => new Date(right.testedAt).getTime() - new Date(left.testedAt).getTime());
+        const newestTest = sortedTests[0] || null;
+        setWaterTests(sortedTests);
         setLatestTest(newestTest);
         setTank({
           tankId: apiTank.tankId || apiTank.id,
@@ -87,48 +84,24 @@ export default function WaterTestDetailsScreen() {
   const nextTestDue = hasTestDate ? (conditions.lastTestedDaysAgo >= 7 ? 'Due now' : `${7 - conditions.lastTestedDaysAgo} days`) : '~';
   const testDate = hasTestDate ? `${conditions.lastTestedDaysAgo} days ago` : '~';
   const hasTestData = conditions.ph !== '~' || conditions.ammoniaPpm !== '~' || conditions.nitritePpm !== '~';
-  const history = [
-    {
-      title: 'Latest test',
-      date: testDate,
-      summary: hasTestData ? `AI review: ${conditions.waterQuality === 'Excellent' ? 'Water quality is stable and the tank is in good condition.' : 'The tank needs attention and should be monitored closely.'}` : 'No water test data yet.',
-      data: [
-        { label: 'pH', value: conditions.ph },
-        { label: 'Ammonia', value: conditions.ammoniaPpm },
-        { label: 'Nitrite', value: conditions.nitritePpm },
-        { label: 'Next test', value: nextTestDue },
-      ],
-    },
-    {
-      title: 'Previous test',
-      date: '~',
-      summary: 'No previous water test data yet.',
-      data: [
-        { label: 'pH', value: '~' },
-        { label: 'Ammonia', value: '~' },
-        { label: 'Nitrite', value: '~' },
-        { label: 'Next test', value: '~' },
-      ],
-    },
-    {
-      title: 'Earlier test',
-      date: '~',
-      summary: 'No earlier water test data yet.',
-      data: [
-        { label: 'pH', value: '~' },
-        { label: 'Ammonia', value: '~' },
-        { label: 'Nitrite', value: '~' },
-        { label: 'Next test', value: '~' },
-      ],
-    },
-  ];
+  const history = waterTests.map((test, index) => ({
+    title: index === 0 ? 'Latest test' : `Test ${index + 1}`,
+    date: new Date(test.testedAt).toLocaleDateString(),
+    summary: test.summary || `Water quality: ${test.waterQuality || 'Unknown'}.`,
+    data: [
+      { label: 'pH', value: test.readings?.ph || '~' },
+      { label: 'Ammonia', value: test.readings?.ammoniaPpm ?? '~' },
+      { label: 'Nitrite', value: test.readings?.nitritePpm ?? '~' },
+      { label: 'Water quality', value: test.waterQuality || '~' },
+    ],
+  }));
 
   const screenWidth = Dimensions.get('window').width;
 
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <Image source={tank.tankImg ? { uri: tank.tankImg } : TANK_IMAGES[tank.tankId as keyof typeof TANK_IMAGES] ?? TANK_IMAGES['1']} style={styles.heroImage} resizeMode="cover" />
+        {tank.tankImg ? <Image source={{ uri: tank.tankImg }} style={styles.heroImage} resizeMode="cover" /> : <View style={styles.heroImageEmpty} />}
 
         <View style={styles.headerBlock}>
           <View style={styles.titleRow}>
@@ -171,20 +144,20 @@ export default function WaterTestDetailsScreen() {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.carouselContent}
           >
-            {history.map((item) => (
+            {history.length > 0 ? history.map((item) => (
               <WaterTestSummaryCard
-                key={item.title}
+                key={`${item.title}-${item.date}`}
                 title={item.title}
                 date={item.date}
                 summary={item.summary}
                 data={item.data}
                 style={{ width: screenWidth - 40 }}
               />
-            ))}
+            )) : <Text style={styles.emptyText}>No past water tests yet.</Text>}
           </ScrollView>
         </View>
       </ScrollView>
-      {currentUserId ? <AddWaterTestModal visible={addTestVisible} tankId={tank.tankId} userId={currentUserId} onClose={() => setAddTestVisible(false)} onSaved={() => { setAddTestVisible(false); getTankWaterTests(tank.tankId).then((tests) => setLatestTest([...tests].sort((left, right) => right.testedAt.localeCompare(left.testedAt))[0] || null)).catch(() => undefined); }} /> : null}
+      {currentUserId ? <AddWaterTestModal visible={addTestVisible} tankId={tank.tankId} userId={currentUserId} onClose={() => setAddTestVisible(false)} onSaved={() => { setAddTestVisible(false); getTankWaterTests(tank.tankId).then((tests) => { const sortedTests = [...tests].sort((left, right) => new Date(right.testedAt).getTime() - new Date(left.testedAt).getTime()); setWaterTests(sortedTests); setLatestTest(sortedTests[0] || null); }).catch(() => undefined); }} /> : null}
     </SafeAreaView>
   );
 }
@@ -206,6 +179,11 @@ const styles = StyleSheet.create({
   heroImage: {
     width: '100%',
     height: 220,
+  },
+  heroImageEmpty: {
+    width: '100%',
+    height: 220,
+    backgroundColor: '#20232C',
   },
   headerBlock: {
     paddingHorizontal: 20,

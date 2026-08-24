@@ -5,7 +5,7 @@ type Props = {
   tanks: Array<{
     id: string;
     name: string;
-    image: number | { uri: string };
+    image?: number | { uri: string };
     testDate?: string;
     waterQuality?: string;
   }>;
@@ -17,7 +17,7 @@ export default function WaterTestTankSelector({ tanks, onSelect }: Props) {
     <View style={styles.container}>
       {tanks.map((tank) => (
         <TouchableOpacity key={tank.id} style={styles.card} onPress={() => onSelect(tank.id)} activeOpacity={0.9}>
-          <Image source={tank.image} style={styles.image} resizeMode="cover" />
+          {tank.image ? <Image source={tank.image} style={styles.image} resizeMode="cover" /> : <View style={styles.imageEmpty} />}
           <View style={styles.cardBody}>
             <Text style={styles.title}>{tank.name}</Text>
             <View style={styles.divider} />
@@ -58,6 +58,11 @@ const styles = StyleSheet.create({
   image: {
     width: '100%',
     height: 140,
+  },
+  imageEmpty: {
+    width: '100%',
+    height: 140,
+    backgroundColor: '#20232C',
   },
   cardBody: {
     paddingHorizontal: 16,

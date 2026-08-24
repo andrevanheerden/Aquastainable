@@ -5,7 +5,6 @@ import SpeciesCard from './SpeciesCard';
 type Props = {
   species: any[];
   speciesListRef: any;
-  getSpeciesImage: (speciesId: string, index: number) => string | number;
   favorites: Set<string>;
   toggleFavorite: (id: string) => void;
   cardWidth: number;
@@ -14,7 +13,7 @@ type Props = {
   onSpeciesPress?: (item: any) => void;
 };
 
-export default function FishPlants({ species, speciesListRef, getSpeciesImage, favorites, toggleFavorite, cardWidth, cardStride, onSpeciesScrollEnd, onSpeciesPress }: Props) {
+export default function FishPlants({ species, speciesListRef, favorites, toggleFavorite, cardWidth, cardStride, onSpeciesScrollEnd, onSpeciesPress }: Props) {
   if (!species || species.length === 0) {
     return (
       <>
@@ -44,7 +43,6 @@ export default function FishPlants({ species, speciesListRef, getSpeciesImage, f
             index={index}
             favorites={favorites}
             toggleFavorite={toggleFavorite}
-            getSpeciesImage={() => getSpeciesImage(item.id, index)}
             cardWidth={cardWidth}
             onPress={() => onSpeciesPress?.(item)}
           />

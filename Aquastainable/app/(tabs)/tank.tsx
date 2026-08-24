@@ -23,8 +23,11 @@ import NeedToKnow from '@/components/tank/NeedToKnow';
 import FishPlants from '@/components/tank/FishPlants';
 import WaterTestCard from '@/components/tank/WaterTestCard';
 import Colors from '../colors';
-import { getTankDetail, Species, TankDetail } from '../data/tankDetails';
+import { Species, TankDetail } from '../data/tankDetails';
 import { useTankApi } from '../hooks/useTankApi';
+import { useFishApi } from '../hooks/useFishApi';
+import { usePlantApi } from '../hooks/usePlantApi';
+import useWaterTestApi, { WaterTestRecord } from '../hooks/useWaterTestApi';
 import { auth } from '@/firebase';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -35,20 +38,20 @@ const TILE_GAP = 16;
 const TILE_WIDTH = (SCREEN_WIDTH - 40 - TILE_GAP) / 2;
 const TILE_HEIGHT = 250;
 
-const TANK_IMAGES: Record<string, any> = {
-  '1': require('../../assets/fishTank/FishTankForest.jpeg'),
-  '2': require('../../assets/fishTank/FishTankLiveingRoom.jpeg'),
-  '3': require('../../assets/fishTank/FishTankTree.jpeg'),
-};
-
-const SPECIES_IMAGES: Record<string, string | number> = {
-  f1: require('../../assets/fishTank/guppy.jpg'),
-  f2: require('../../assets/fishTank/goldFish.jpg'),
-  f3: require('../../assets/fishTank/duckweed.jpeg'),
-};
-
-function getSpeciesImage(speciesId: string, index: number) {
-  return SPECIES_IMAGES[speciesId] ?? Object.values(SPECIES_IMAGES)[index % Object.keys(SPECIES_IMAGES).length];
+function mapApiSpecies(item: any, type: Species['type']): Species {
+  return {
+    id: type === 'fish' ? item.fishId || item.id : item.plantId || item.id,
+    type,
+    image: item.image || item.imageUrl || '',
+    name: item.name || item.FBname || 'Unnamed species',
+    speciesName: item.scientificName || item.speciesName || 'Unknown species',
+    origin: item.origin || 'Unknown',
+    lifespan: item.lifespan || 'Unknown',
+    preferredTempC: item.preferredTempC || item.bestTempC || item.tempC || 'Unknown',
+    feeding: item.feeding || item.feedType || 'Unknown',
+    schoolSize: item.schoolSize || 'Unknown',
+    summary: item.summary || item.description || 'No species description available.',
+  };
 }
 
 // ConditionTile and SpeciesCard moved to components/tank/
@@ -57,6 +60,9 @@ export default function TankInfoScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { getTankById, getTankOverview } = useTankApi();
+  const { getTankFish } = useFishApi();
+  const { getUserPlants } = usePlantApi();
+  const { getTankWaterTests } = useWaterTestApi();
   
   const [tank, setTank] = useState<TankDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -72,7 +78,7 @@ export default function TankInfoScreen() {
     return () => unsubscribe();
   }, []);
 
-  // Fetch tank data from API or mock data
+  // Fetch tank data from the API.
   useEffect(() => {
     const loadTank = async () => {
       setLoading(true);
@@ -82,19 +88,20 @@ export default function TankInfoScreen() {
         return;
       }
 
-      // First, try mock data for IDs 1, 2, 3
-      const mockTank = getTankDetail(id);
-      if (mockTank) {
-        setTank(mockTank);
-        setLoading(false);
-        return;
-      }
-
-      // If not mock data, try to fetch from API
       if (currentUserId) {
         try {
-          const apiTank = await getTankById(currentUserId, id);
+          const [apiTank, tankFish, userPlants, waterTests] = await Promise.all([
+            getTankById(currentUserId, id),
+            getTankFish(id).catch(() => []),
+            getUserPlants(currentUserId).catch(() => []),
+            getTankWaterTests(id).catch(() => []),
+          ]);
           if (apiTank) {
+              const latestTest = [...waterTests].sort((left, right) => new Date(right.testedAt).getTime() - new Date(left.testedAt).getTime())[0] as WaterTestRecord | undefined;
+              const species = [
+                ...tankFish.map((fish) => mapApiSpecies(fish, 'fish')),
+                ...userPlants.filter((plant) => plant.tankId === id).map((plant) => mapApiSpecies(plant, 'plant')),
+              ];
               let overview = apiTank.overview || '';
               try {
                 const overviewResult = await getTankOverview(currentUserId, id);
@@ -110,14 +117,14 @@ export default function TankInfoScreen() {
               tankImg: apiTank.tankImg,
                 overviewSummary: overview,
               conditions: {
-                preferredTempC: '',
-                waterQuality: 'Good',
-                lastTestedDaysAgo: 7,
-                ph: '',
-                ammoniaPpm: '',
-                nitritePpm: '',
+                preferredTempC: latestTest?.readings?.temperatureC || apiTank.preferredTempC || apiTank.temperatureC || '',
+                waterQuality: (latestTest?.waterQuality || apiTank.waterQuality || 'Good') as TankDetail['conditions']['waterQuality'],
+                lastTestedDaysAgo: latestTest ? Math.max(0, Math.floor((Date.now() - new Date(latestTest.testedAt).getTime()) / 86400000)) : apiTank.lastTestedDaysAgo || 0,
+                ph: latestTest?.readings?.ph || apiTank.ph || '',
+                ammoniaPpm: (latestTest?.readings?.ammoniaPpm ?? apiTank.ammoniaPpm?.toString()) || '',
+                nitritePpm: (latestTest?.readings?.nitritePpm ?? apiTank.nitritePpm?.toString()) || '',
               },
-              species: [],
+              species,
               careTips: [],
             };
             setTank(convertedTank);
@@ -176,7 +183,7 @@ export default function TankInfoScreen() {
   };
 
   const activeSpecies = tank.species[activeIndex] || tank.species[0];
-  const tankImageSource = tank.tankImg ? { uri: tank.tankImg } : TANK_IMAGES[tank.tankId] ?? TANK_IMAGES['1'];
+  const tankImageSource = tank.tankImg ? { uri: tank.tankImg } : null;
 
   return (
     <View style={styles.container}>
@@ -202,13 +209,7 @@ export default function TankInfoScreen() {
                       index !== 0 && styles.heroSmallThumbSpacing,
                     ]}
                   >
-                    <Image
-                      source={typeof getSpeciesImage(item.id, index) === 'string'
-                        ? { uri: getSpeciesImage(item.id, index) as string }
-                        : getSpeciesImage(item.id, index)}
-                      style={styles.heroSmallThumbImage}
-                      resizeMode="cover"
-                    />
+                    {item.image ? <Image source={{ uri: item.image }} style={styles.heroSmallThumbImage} resizeMode="cover" /> : null}
                   </View>
                 ))}
               </View>
@@ -216,20 +217,12 @@ export default function TankInfoScreen() {
 
             <View style={styles.heroPreviewContainer}>
               <View style={styles.heroPreviewBackground}>
-                <Image
-                  source={tankImageSource}
-                  style={styles.heroPreviewBackgroundImage}
-                  blurRadius={24}
-                />
+                {tankImageSource ? <Image source={tankImageSource} style={styles.heroPreviewBackgroundImage} blurRadius={24} /> : null}
                 <View style={styles.heroPreviewOverlay} />
               </View>
               <View style={styles.heroCircleContainer}>
                 <View style={styles.heroCircleGlow} />
-                <Image
-                  source={tankImageSource}
-                  style={styles.heroCircleImage}
-                  resizeMode="cover"
-                />
+                {tankImageSource ? <Image source={tankImageSource} style={styles.heroCircleImage} resizeMode="cover" /> : null}
               </View>
             </View>
           </View>
@@ -246,7 +239,6 @@ export default function TankInfoScreen() {
           <FishPlants
             species={tank.species}
             speciesListRef={speciesListRef}
-            getSpeciesImage={getSpeciesImage}
             favorites={favorites}
             toggleFavorite={toggleFavorite}
             cardWidth={CARD_WIDTH}
