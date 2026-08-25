@@ -122,6 +122,7 @@ export default function AddFishModal({ visible, onClose, tankId: defaultTankId }
     imageSourceUrl: selectedFish?.imageSourceUrl,
     imageLicense: selectedFish?.imageLicense,
     source: selectedFish?.source,
+    assessment: targetTankId === selectedTank && assessment?.canAdd ? assessment : undefined,
   });
 
   const handleCheckCompatibility = async () => {

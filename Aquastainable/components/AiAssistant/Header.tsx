@@ -10,10 +10,10 @@ export function HoldIconButton({ onHold, icon, label, fillColor = 'rgba(46, 140,
 
   const start = () => {
     progress.setValue(0);
-    Animated.timing(progress, { toValue: 1, duration: 20, useNativeDriver: false }).start();
+    Animated.timing(progress, { toValue: 1, duration: 500, useNativeDriver: false }).start();
     timer.current = setTimeout(() => {
       onHold();
-    }, 20);
+    }, 500);
   };
 
   const cancel = () => {

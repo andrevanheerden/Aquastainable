@@ -1,28 +1,32 @@
-import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, Image, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import React, { useCallback, useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, FlatList, Image, Modal, SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { onAuthStateChanged } from 'firebase/auth';
 
 import { auth } from '@/firebase';
 import AddNewFishCard from '@/components/fish&Plants/AddNewFishCard';
 import AddFishModal from '@/components/fish&Plants/AddFishModal';
+import HoldActionButton from '@/components/fish&Plants/HoldActionButton';
 import { TankFish, useFishApi } from '@/app/hooks/useFishApi';
 
 type SpeciesCardItem = TankFish;
 
 export default function FishSpeciesScreen() {
   const router = useRouter();
-  const { getUserFish, loading, error } = useFishApi();
+  const { getUserFish, updateFish, removeFishFromTank, loading, error } = useFishApi();
   const [addFishVisible, setAddFishVisible] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [species, setSpecies] = useState<SpeciesCardItem[]>([]);
+  const [editingFish, setEditingFish] = useState<SpeciesCardItem | null>(null);
+  const [schoolSizeDraft, setSchoolSizeDraft] = useState('');
+  const [actionLoading, setActionLoading] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => setCurrentUserId(user?.uid ?? null));
     return unsubscribe;
   }, []);
 
-  useEffect(() => {
+  const loadFish = useCallback(() => {
     if (!currentUserId) {
       setSpecies([]);
       return;
@@ -32,6 +36,10 @@ export default function FishSpeciesScreen() {
       .then((fish) => setSpecies(Array.isArray(fish) ? fish : []))
       .catch(() => setSpecies([]));
   }, [currentUserId, getUserFish]);
+
+  useFocusEffect(useCallback(() => {
+    loadFish();
+  }, [loadFish]));
 
   const handlePress = (item: SpeciesCardItem) => {
     router.push({ pathname: '/(tabs)/fishDetails', params: { speciesId: item.id, tankId: item.tankId } });
@@ -43,6 +51,38 @@ export default function FishSpeciesScreen() {
       return 'N/A';
     }
     return compactValue.length > 10 ? `${compactValue.slice(0, 10)}...` : compactValue;
+  };
+
+  const openFishEditor = (item: SpeciesCardItem) => {
+    setEditingFish(item);
+    setSchoolSizeDraft(item.schoolSize || '');
+  };
+
+  const saveFishEdit = async () => {
+    if (!currentUserId || !editingFish || !schoolSizeDraft.trim()) return;
+    setActionLoading(true);
+    try {
+      await updateFish(currentUserId, editingFish.tankId, editingFish.id, schoolSizeDraft.trim());
+      setEditingFish(null);
+      loadFish();
+    } catch (saveError) {
+      Alert.alert('Fish update failed', saveError instanceof Error ? saveError.message : 'Please try again.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const deleteFish = async (item: SpeciesCardItem) => {
+    if (actionLoading) return;
+    setActionLoading(true);
+    try {
+      await removeFishFromTank(currentUserId || '', item.tankId, item.id);
+      setSpecies((current) => current.filter((fish) => fish.id !== item.id || fish.tankId !== item.tankId));
+    } catch (deleteError) {
+      Alert.alert('Fish deletion failed', deleteError instanceof Error ? deleteError.message : 'Please try again.');
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   return (
@@ -65,7 +105,8 @@ export default function FishSpeciesScreen() {
 
           const imageSource = item.image ? { uri: item.image } : undefined;
           return (
-            <TouchableOpacity style={styles.card} onPress={() => handlePress(item)} activeOpacity={0.9}>
+            <View style={styles.card}>
+              <TouchableOpacity onPress={() => handlePress(item)} activeOpacity={0.9}>
               {imageSource ? <Image source={imageSource} style={styles.image} resizeMode="cover" /> : <View style={styles.imageEmpty} />}
               <View style={styles.cardBody}>
                 <Text style={styles.name}>{item.name}</Text>
@@ -86,14 +127,30 @@ export default function FishSpeciesScreen() {
                   </Text>
                 </View>
               </View>
-            </TouchableOpacity>
+              </TouchableOpacity>
+              <View style={styles.actionRow}>
+                <HoldActionButton label="Hold to edit" onHold={() => openFishEditor(item)} fillColor="#2E8CA6" />
+                <HoldActionButton label="Hold to delete" onHold={() => { void deleteFish(item); }} fillColor="#B83A45" style={styles.deleteAction} />
+              </View>
+            </View>
           );
         }}
       />
       {loading ? <ActivityIndicator color="#FFFFFF" style={styles.loading} /> : null}
       {!loading && !error && species.length === 0 ? <Text style={styles.emptyState}>No fish have been added to your tanks yet.</Text> : null}
       {error ? <Text style={styles.emptyState}>Unable to load your fish right now.</Text> : null}
-      <AddFishModal visible={addFishVisible} onClose={() => setAddFishVisible(false)} />
+      <AddFishModal visible={addFishVisible} onClose={() => { setAddFishVisible(false); loadFish(); }} />
+      <Modal visible={Boolean(editingFish)} transparent animationType="fade" onRequestClose={() => setEditingFish(null)}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.editModal}>
+            <Text style={styles.editTitle}>Edit school size</Text>
+            <Text style={styles.editSubtitle}>{editingFish?.name || 'Fish'}</Text>
+            <TextInput value={schoolSizeDraft} onChangeText={setSchoolSizeDraft} keyboardType="numeric" placeholder="School size" placeholderTextColor="#6E7684" style={styles.editInput} />
+            <HoldActionButton label={actionLoading ? 'Saving...' : 'Hold to save'} onHold={() => { void saveFishEdit(); }} fillColor="#2E8CA6" />
+            <TouchableOpacity style={styles.cancelButton} onPress={() => setEditingFish(null)}><Text style={styles.cancelText}>Cancel</Text></TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -194,4 +251,13 @@ const styles = StyleSheet.create({
     marginHorizontal: 20,
     marginTop: 20,
   },
+  actionRow: { gap: 8, padding: 10 },
+  deleteAction: { backgroundColor: '#6F2028' },
+  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.72)', justifyContent: 'center', padding: 24 },
+  editModal: { backgroundColor: '#14151B', borderRadius: 18, padding: 20 },
+  editTitle: { color: '#FFFFFF', fontSize: 20, fontWeight: '800' },
+  editSubtitle: { color: '#8F97A6', marginTop: 4, marginBottom: 16 },
+  editInput: { color: '#FFFFFF', backgroundColor: '#20232C', borderRadius: 10, padding: 12, marginBottom: 12 },
+  cancelButton: { alignItems: 'center', padding: 12, marginTop: 8 },
+  cancelText: { color: '#A8C4CB', fontWeight: '700' },
 });

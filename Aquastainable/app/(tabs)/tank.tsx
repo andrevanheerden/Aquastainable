@@ -1,6 +1,7 @@
 // app/(tabs)/tank.tsx
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  Animated,
   Dimensions,
   FlatList,
   Image,
@@ -17,7 +18,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { onAuthStateChanged } from 'firebase/auth';
 import * as ImagePicker from 'expo-image-picker';
 
@@ -42,6 +43,31 @@ const TILE_GAP = 16;
 const TILE_WIDTH = (SCREEN_WIDTH - 40 - TILE_GAP) / 2;
 const TILE_HEIGHT = 250;
 
+function HoldActionButton({ style, onHold, disabled, fillColor, text }: { style: object; onHold: () => void; disabled: boolean; fillColor: string; text: string }) {
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const progress = useRef(new Animated.Value(0)).current;
+
+  const start = () => {
+    if (disabled) return;
+    progress.setValue(0);
+    Animated.timing(progress, { toValue: 1, duration: 500, useNativeDriver: false }).start();
+    timer.current = setTimeout(onHold, 500);
+  };
+
+  const cancel = () => {
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = null;
+    Animated.timing(progress, { toValue: 0, duration: 100, useNativeDriver: false }).start();
+  };
+
+  return (
+    <TouchableOpacity style={[style, disabled && styles.disabledButton]} onPressIn={start} onPressOut={cancel} onPress={cancel} disabled={disabled} activeOpacity={0.8}>
+      <Animated.View pointerEvents="none" style={[styles.holdActionFill, { backgroundColor: fillColor, transform: [{ scaleX: progress }] }]} />
+      <Text style={styles.saveEditText}>{text}</Text>
+    </TouchableOpacity>
+  );
+}
+
 function mapApiSpecies(item: any, type: Species['type']): Species {
   return {
     id: type === 'fish' ? item.fishId || item.id : item.plantId || item.id,
@@ -63,7 +89,7 @@ function mapApiSpecies(item: any, type: Species['type']): Species {
 export default function TankInfoScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const { getTankById, getTankOverview, updateTank } = useTankApi();
+  const { getTankById, getTankOverview, updateTank, deleteTank } = useTankApi();
   const { getTankFish } = useFishApi();
   const { getUserPlants } = usePlantApi();
   const { getTankWaterTests } = useWaterTestApi();
@@ -86,8 +112,7 @@ export default function TankInfoScreen() {
   }, []);
 
   // Fetch tank data from the API.
-  useEffect(() => {
-    const loadTank = async () => {
+  const loadTank = useCallback(async () => {
       setLoading(true);
       
       if (!id) {
@@ -143,10 +168,11 @@ export default function TankInfoScreen() {
       }
       
       setLoading(false);
-    };
+  }, [currentUserId, getTankById, getTankFish, getTankOverview, getTankWaterTests, getUserPlants, id]);
 
+  useFocusEffect(useCallback(() => {
     loadTank();
-  }, [id, currentUserId, getTankById, getTankOverview]);
+  }, [loadTank]));
 
   const [favorites, setFavorites] = useState<Set<string>>(
     () => new Set((tank?.species ?? []).filter((s) => s.favorite).map((s) => s.id))
@@ -227,6 +253,20 @@ export default function TankInfoScreen() {
       setEditVisible(false);
     } catch (error) {
       Alert.alert('Tank update failed', error instanceof Error ? error.message : 'Please try again.');
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  const removeTank = async () => {
+    if (!currentUserId || !tank || savingEdit) return;
+    setSavingEdit(true);
+    try {
+      await deleteTank(currentUserId, tank.tankId);
+      setEditVisible(false);
+      router.back();
+    } catch (error) {
+      Alert.alert('Tank deletion failed', error instanceof Error ? error.message : 'Please try again.');
     } finally {
       setSavingEdit(false);
     }
@@ -335,9 +375,8 @@ export default function TankInfoScreen() {
             <Text style={styles.editLabel}>Tank size (litres)</Text>
             <TextInput value={editForm.tankSize} onChangeText={(value) => setEditForm((current) => ({ ...current, tankSize: value }))} placeholder="20" placeholderTextColor="#6E7684" keyboardType="numeric" style={styles.editInput} />
 
-            <TouchableOpacity style={styles.saveEditButton} onPress={saveTankEdits} disabled={savingEdit} activeOpacity={0.8}>
-              <Text style={styles.saveEditText}>{savingEdit ? 'Saving...' : 'Save changes'}</Text>
-            </TouchableOpacity>
+            <HoldActionButton style={styles.saveEditButton} onHold={saveTankEdits} disabled={savingEdit} fillColor="#2E8CA6" text={savingEdit ? 'Saving...' : 'Hold to save changes'} />
+            <HoldActionButton style={styles.deleteTankButton} onHold={removeTank} disabled={savingEdit} fillColor="#B83A45" text="Hold to delete tank" />
           </View>
         </View>
       </Modal>
@@ -591,7 +630,14 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     marginTop: 4,
     borderRadius: 15,
-    backgroundColor: '#2E8CA6',
+    backgroundColor: '#1B5667',
+  },
+  deleteTankButton: {
+    alignItems: 'center',
+    paddingVertical: 14,
+    marginTop: 4,
+    borderRadius: 15,
+    backgroundColor: '#6F2028',
   },
   saveEditText: {
     color: '#FFFFFF',

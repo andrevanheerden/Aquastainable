@@ -1,10 +1,11 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, Image, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { ActivityIndicator, Alert, FlatList, Image, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { onAuthStateChanged } from 'firebase/auth';
 
 import AddNewPlantCard from '@/components/fish&Plants/AddNewPlantCard';
 import AddPlantModal from '@/components/fish&Plants/AddPlantModal';
+import HoldActionButton from '@/components/fish&Plants/HoldActionButton';
 import { auth } from '@/firebase';
 import { SavedPlant, usePlantApi } from '@/app/hooks/usePlantApi';
 
@@ -12,10 +13,11 @@ type SpeciesCardItem = SavedPlant;
 
 export default function PlantSpeciesScreen() {
   const router = useRouter();
-  const { getUserPlants, loading, error } = usePlantApi();
+  const { getUserPlants, deletePlant, loading, error } = usePlantApi();
   const [addPlantVisible, setAddPlantVisible] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [species, setSpecies] = useState<SpeciesCardItem[]>([]);
+  const [actionLoading, setActionLoading] = useState(false);
 
   useEffect(() => onAuthStateChanged(auth, (user) => setCurrentUserId(user?.uid ?? null)), []);
 
@@ -29,12 +31,25 @@ export default function PlantSpeciesScreen() {
       .catch(() => setSpecies([]));
   }, [currentUserId, getUserPlants]);
 
-  useEffect(() => {
+  useFocusEffect(useCallback(() => {
     loadPlants();
-  }, [loadPlants]);
+  }, [loadPlants]));
 
   const handlePress = (item: SpeciesCardItem) => {
     router.push({ pathname: '/(tabs)/plantDetails', params: { speciesId: item.id } });
+  };
+
+  const removePlant = async (item: SpeciesCardItem) => {
+    if (actionLoading || !currentUserId) return;
+    setActionLoading(true);
+    try {
+      await deletePlant(currentUserId, item.tankId, item.id);
+      setSpecies((current) => current.filter((plant) => plant.id !== item.id || plant.tankId !== item.tankId));
+    } catch (deleteError) {
+      Alert.alert('Plant deletion failed', deleteError instanceof Error ? deleteError.message : 'Please try again.');
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   return (
@@ -57,7 +72,8 @@ export default function PlantSpeciesScreen() {
 
           const imageSource = item.image ? { uri: item.image } : undefined;
           return (
-            <TouchableOpacity style={styles.card} onPress={() => handlePress(item)} activeOpacity={0.9}>
+            <View style={styles.card}>
+              <TouchableOpacity onPress={() => handlePress(item)} activeOpacity={0.9}>
               {imageSource ? <Image source={imageSource} style={styles.image} resizeMode="cover" /> : <View style={styles.imageEmpty} />}
               <View style={styles.cardBody}>
                 <Text style={styles.name}>{item.name}</Text>
@@ -70,7 +86,11 @@ export default function PlantSpeciesScreen() {
                   </Text>
                 </View>
               </View>
-            </TouchableOpacity>
+              </TouchableOpacity>
+              <View style={styles.actionRow}>
+                <HoldActionButton label="Hold to delete plant" onHold={() => { void removePlant(item); }} fillColor="#B83A45" style={styles.deleteAction} />
+              </View>
+            </View>
           );
         }}
       />
@@ -178,4 +198,6 @@ const styles = StyleSheet.create({
     marginHorizontal: 20,
     marginTop: 20,
   },
+  actionRow: { padding: 10 },
+  deleteAction: { backgroundColor: '#6F2028' },
 });

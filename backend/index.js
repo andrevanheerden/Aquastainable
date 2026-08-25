@@ -334,6 +334,32 @@ app.patch('/tanks/:userId/:tankId', async (req, res) => {
   }
 });
 
+app.delete('/tanks/:userId/:tankId', async (req, res) => {
+  try {
+    if (!db) return res.status(503).json({ error: 'Database is not configured.' });
+
+    const { userId, tankId } = req.params;
+    let tankRef = db.collection('tanks').doc(String(tankId));
+    let tankDoc = await tankRef.get();
+    if (!tankDoc.exists) {
+      const matchingTanks = await db.collection('tanks')
+        .where('tankId', '==', String(tankId))
+        .get();
+      const matchingTank = matchingTanks.docs.find((doc) => doc.data().user_id === userId);
+      if (!matchingTank) return res.status(404).json({ error: 'Tank not found.' });
+      tankDoc = matchingTank;
+      tankRef = tankDoc.ref;
+    }
+    if (tankDoc.data().user_id !== userId) return res.status(403).json({ error: 'Tank does not belong to this user.' });
+
+    await db.recursiveDelete(tankRef);
+    return res.status(204).send();
+  } catch (error) {
+    console.error('Tank delete error:', error);
+    return res.status(500).json({ error: error.message || 'Failed to delete tank.' });
+  }
+});
+
 app.get('/tanks/:userId', async (req, res) => {
   try {
     const userId = req.params.userId;

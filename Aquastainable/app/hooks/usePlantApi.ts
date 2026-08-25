@@ -41,7 +41,7 @@ export function usePlantApi() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const requestApi = useCallback(async <T,>(method: 'get' | 'post', path: string, payload?: object) => {
+  const requestApi = useCallback(async <T,>(method: 'get' | 'post' | 'delete', path: string, payload?: object) => {
     setError('');
     setLoading(true);
     try {
@@ -80,11 +80,15 @@ export function usePlantApi() {
     requestApi<SavedPlant[]>('get', `/plants/user/${encodeURIComponent(userId)}`)
   ), [requestApi]);
 
+  const deletePlant = useCallback(async (userId: string, tankId: string, plantDocId: string) => (
+    requestApi<{ success: boolean }>('delete', `/plants/${encodeURIComponent(tankId)}/${encodeURIComponent(plantDocId)}`, { userId })
+  ), [requestApi]);
+
   const assessPlantAddition = useCallback(async (payload: { userId: string; tankId: string; plant: PlantSpecies }) => (
     requestApi<PlantCompatibilityAssessment>('post', '/plants/assess-add', payload)
   ), [requestApi]);
 
-  return { loading, error, searchPlants, assessPlantAddition, addPlantToTank, getUserPlants };
+  return { loading, error, searchPlants, assessPlantAddition, addPlantToTank, getUserPlants, deletePlant };
 }
 
 export default usePlantApi;

@@ -163,6 +163,25 @@ function createPlantRouter({ db }) {
     }
   });
 
+  router.delete('/:tankId/:plantDocId', async (req, res) => {
+    try {
+      const { userId } = req.body || {};
+      const tankRef = db.collection('tanks').doc(String(req.params.tankId));
+      const tankDoc = await tankRef.get();
+      if (!tankDoc.exists || tankDoc.data().user_id !== userId) {
+        return res.status(403).json({ error: 'Unauthorized to modify this tank.' });
+      }
+      const plantRef = tankRef.collection('plants').doc(String(req.params.plantDocId));
+      const plantDoc = await plantRef.get();
+      if (!plantDoc.exists) return res.status(404).json({ error: 'Plant was not found.' });
+      await plantRef.delete();
+      return res.status(200).json({ success: true, message: 'Plant removed.' });
+    } catch (error) {
+      console.error('Plant delete error:', error);
+      return res.status(500).json({ error: error.message || 'Failed to delete plant.' });
+    }
+  });
+
   return router;
 }
 

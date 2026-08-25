@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
   Animated,
@@ -18,7 +18,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { onAuthStateChanged } from 'firebase/auth';
 
@@ -117,7 +117,7 @@ export default function HomeScreen() {
     return () => unsubscribe();
   }, []);
 
-  const loadTanks = async () => {
+  const loadTanks = useCallback(async () => {
     if (!currentUserId) {
       setTanks([]);
       return;
@@ -130,11 +130,11 @@ export default function HomeScreen() {
     } catch (error) {
       setTanks([]);
     }
-  };
+  }, [currentUserId, getUserTanks]);
 
-  useEffect(() => {
+  useFocusEffect(useCallback(() => {
     loadTanks();
-  }, [currentUserId]);
+  }, [loadTanks]));
 
   const screenPanResponder = useRef(
     PanResponder.create({

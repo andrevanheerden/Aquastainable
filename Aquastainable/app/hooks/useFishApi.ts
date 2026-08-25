@@ -152,6 +152,7 @@ export function useFishApi() {
     imageSourceUrl?: string;
     imageLicense?: string;
     source?: string;
+    assessment?: FishCompatibilityAssessment;
   }) => {
     return requestApi<TankFish & { assessment: FishCompatibilityAssessment }>('post', '/fish/add-reviewed', payload);
   }, [requestApi]);
@@ -162,6 +163,10 @@ export function useFishApi() {
 
   const getUserFish = useCallback(async (userId: string) => {
     return requestApi<TankFish[]>('get', `/fish/user/${userId}`);
+  }, [requestApi]);
+
+  const updateFish = useCallback(async (userId: string, tankId: string, fishDocId: string, schoolSize: string) => {
+    return requestApi<TankFish>('patch', `/fish/${encodeURIComponent(tankId)}/${encodeURIComponent(fishDocId)}`, { userId, schoolSize });
   }, [requestApi]);
 
   const enrichFish = useCallback(async (userId: string, fishId: string) => {
@@ -189,15 +194,15 @@ export function useFishApi() {
   }, [requestApi]);
 
   const removeFishFromTank = useCallback(
-    async (tankId: string, fishDocId: string) => {
-      return requestApi<{ success: boolean }>('delete', `/fish/${tankId}/${fishDocId}`);
+    async (userId: string, tankId: string, fishDocId: string) => {
+      return requestApi<{ success: boolean }>('delete', `/fish/${tankId}/${fishDocId}`, { userId });
     },
     [requestApi]
   );
 
   const clearError = useCallback(() => setError(''), []);
 
-  return { loading, error, clearError, searchFish, addFishToTank, assessFishAddition, addReviewedFish, getTankFish, getUserFish, enrichFish, getIndividualFish, addIndividualFish, updateIndividualFish, deleteIndividualFish, removeFishFromTank };
+  return { loading, error, clearError, searchFish, addFishToTank, assessFishAddition, addReviewedFish, getTankFish, getUserFish, updateFish, enrichFish, getIndividualFish, addIndividualFish, updateIndividualFish, deleteIndividualFish, removeFishFromTank };
 }
 
 export default useFishApi;

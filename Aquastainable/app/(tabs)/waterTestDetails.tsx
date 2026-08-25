@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, SafeAreaView, ScrollView, StyleSheet, Text, View, Image, Dimensions } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { onAuthStateChanged } from 'firebase/auth';
 
 import WaterTestSummaryCard from '../../components/waterTest/WaterTestSummaryCard';
@@ -21,7 +21,7 @@ export default function WaterTestDetailsScreen() {
   const [latestTest, setLatestTest] = useState<WaterTestRecord | null>(null);
   const [waterTests, setWaterTests] = useState<WaterTestRecord[]>([]);
 
-  useEffect(() => {
+  const loadWaterTestData = useCallback(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => setCurrentUserId(user?.uid ?? null));
     return unsubscribe;
   }, []);
@@ -60,6 +60,10 @@ export default function WaterTestDetailsScreen() {
       .catch(() => setTank(null))
       .finally(() => setLoading(false));
   }, [currentUserId, getTankById, getTankWaterTests, tankId]);
+
+  useFocusEffect(useCallback(() => {
+    loadWaterTestData();
+  }, [loadWaterTestData]));
 
   if (loading) {
     return <SafeAreaView style={styles.container}><ActivityIndicator color="#FFFFFF" /></SafeAreaView>;

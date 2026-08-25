@@ -27,8 +27,16 @@ async function getIndividualFishParent(db, userId, tankId, fishDocId) {
     throw error;
   }
 
-  const tankRef = db.collection('tanks').doc(String(tankId));
-  const tankDoc = await tankRef.get();
+  let tankRef = db.collection('tanks').doc(String(tankId));
+  let tankDoc = await tankRef.get();
+  if (!tankDoc.exists) {
+    const matchingTanks = await db.collection('tanks').where('tankId', '==', String(tankId)).get();
+    const matchingTank = matchingTanks.docs.find((doc) => doc.data().user_id === userId);
+    if (matchingTank) {
+      tankRef = matchingTank.ref;
+      tankDoc = matchingTank;
+    }
+  }
   if (!tankDoc.exists || tankDoc.data().user_id !== userId) {
     const error = new Error('Tank does not belong to this user.');
     error.statusCode = 403;
@@ -239,9 +247,39 @@ function createFishRouter({ db }) {
       if (!userId || !tankId || !fishId || !String(schoolSize || '').trim()) {
         return res.status(400).json({ error: 'userId, tankId, fishId, and schoolSize are required.' });
       }
-      const assessment = await assessAddition(db, req.body);
+      let assessment;
+      if (req.body.assessment) {
+        const contexts = await getTankContexts(db, userId);
+        const selectedTank = contexts.find((item) => item.id === String(tankId));
+        if (!selectedTank) {
+          return res.status(403).json({ error: 'Tank does not belong to this user.' });
+        }
+        const normalizedAssessment = normalizeAssessment(req.body.assessment, schoolSize);
+        assessment = {
+          ...normalizedAssessment,
+          canAdd: normalizedAssessment.canAdd === true || normalizedAssessment.status === 'compatible',
+          selectedTankId: selectedTank.id,
+          selectedTankName: selectedTank.name,
+        };
+      } else {
+        assessment = await assessAddition(db, req.body);
+      }
       if (!assessment.canAdd) {
         return res.status(409).json({ error: assessment.explanation || 'This fish cannot be added to this tank.', assessment });
+      }
+
+      let tankRef = db.collection('tanks').doc(String(tankId));
+      let tankDoc = await tankRef.get();
+      if (!tankDoc.exists) {
+        const matchingTanks = await db.collection('tanks').where('tankId', '==', String(tankId)).get();
+        const matchingTank = matchingTanks.docs.find((doc) => doc.data().user_id === userId);
+        if (matchingTank) {
+          tankRef = matchingTank.ref;
+          tankDoc = matchingTank;
+        }
+      }
+      if (!tankDoc.exists || tankDoc.data().user_id !== userId) {
+        return res.status(403).json({ error: 'Tank does not belong to this user.' });
       }
 
       const fishRecord = {
@@ -258,7 +296,7 @@ function createFishRouter({ db }) {
         addedAt: new Date(),
         ...(await getCareProfileSafely(req.body)),
       };
-      const docRef = await db.collection('tanks').doc(String(tankId)).collection('fish').add(fishRecord);
+      const docRef = await tankRef.collection('fish').add(fishRecord);
       return res.status(201).json({ id: docRef.id, ...fishRecord, assessment });
     } catch (error) {
       console.error('Reviewed fish add error:', error);
@@ -373,6 +411,23 @@ function createFishRouter({ db }) {
     }
   });
 
+  router.patch('/:tankId/:fishDocId', async (req, res) => {
+    try {
+      const { userId, schoolSize } = req.body || {};
+      if (!userId || !String(schoolSize || '').trim()) {
+        return res.status(400).json({ error: 'userId and schoolSize are required.' });
+      }
+      const { fishRef } = await getIndividualFishParent(db, userId, req.params.tankId, req.params.fishDocId);
+      const fishDoc = await fishRef.get();
+      if (!fishDoc.exists) return res.status(404).json({ error: 'Fish was not found.' });
+      await fishRef.update({ schoolSize: String(schoolSize).trim(), updatedAt: new Date() });
+      return res.status(200).json({ id: fishDoc.id, ...fishDoc.data(), schoolSize: String(schoolSize).trim() });
+    } catch (error) {
+      console.error('Update fish error:', error);
+      return res.status(500).json({ error: error.message || 'Failed to update fish.' });
+    }
+  });
+
   router.post('/:tankId/:fishDocId/individual-fish', async (req, res) => {
     try {
       const { userId, image, imageUrl } = req.body || {};
@@ -483,12 +538,8 @@ function createFishRouter({ db }) {
       const { userId } = req.body; // or req.user.id from auth middleware
       const { tankId, fishDocId } = req.params;
 
-      const tankDoc = await db.collection('tanks').doc(tankId).get();
-      if (!tankDoc.exists || tankDoc.data().user_id !== userId) {
-        return res.status(403).json({ error: 'Unauthorized to modify this tank.' });
-      }
-
-      await db.collection('tanks').doc(tankId).collection('fish').doc(fishDocId).delete();
+      const { fishRef } = await getIndividualFishParent(db, userId, tankId, fishDocId);
+      await fishRef.delete();
       return res.status(200).json({ success: true, message: 'Fish removed.' });
     } catch (error) {
       return res.status(500).json({ error: error.message });
