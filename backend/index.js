@@ -31,20 +31,26 @@ if (process.env.CLOUDINARY_URL) {
 
 const { FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY, FIREBASE_API_KEY } = process.env;
 
-if (FIREBASE_PROJECT_ID && FIREBASE_CLIENT_EMAIL && FIREBASE_PRIVATE_KEY && FIREBASE_API_KEY) {
+const firebasePrivateKey = FIREBASE_PRIVATE_KEY
+  ?.trim()
+  .replace(/^['"]|['"]$/g, '')
+  .replace(/\\n/g, '\n')
+  .replace(/\r/g, '');
+
+if (FIREBASE_PROJECT_ID && FIREBASE_CLIENT_EMAIL && firebasePrivateKey && FIREBASE_API_KEY) {
   admin.initializeApp({
     credential: admin.cert({
       projectId: FIREBASE_PROJECT_ID,
       clientEmail: FIREBASE_CLIENT_EMAIL,
-      privateKey: FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+      privateKey: firebasePrivateKey,
     }),
   });
 } else {
   console.warn('Firebase backend env vars missing; running in limited local mode. Firestore CRUD routes will be unavailable until .env is configured.');
 }
 
-const db = FIREBASE_PROJECT_ID && FIREBASE_CLIENT_EMAIL && FIREBASE_PRIVATE_KEY && FIREBASE_API_KEY ? getFirestore() : null;
-const auth = FIREBASE_PROJECT_ID && FIREBASE_CLIENT_EMAIL && FIREBASE_PRIVATE_KEY && FIREBASE_API_KEY ? getAuth() : null;
+const db = FIREBASE_PROJECT_ID && FIREBASE_CLIENT_EMAIL && firebasePrivateKey && FIREBASE_API_KEY ? getFirestore() : null;
+const auth = FIREBASE_PROJECT_ID && FIREBASE_CLIENT_EMAIL && firebasePrivateKey && FIREBASE_API_KEY ? getAuth() : null;
 
 app.use('/fish', createFishRouter({ db }));
 app.use('/plants', createPlantRouter({ db }));
