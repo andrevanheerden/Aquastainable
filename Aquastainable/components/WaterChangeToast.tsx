@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Animated, Modal, PanResponder, StyleSheet, Text, View } from 'react-native';
+import { Animated, Dimensions, Modal, PanResponder, StyleSheet, Text, View } from 'react-native';
 import { onAuthStateChanged } from 'firebase/auth';
 
 import { auth } from '@/firebase';
@@ -12,20 +12,30 @@ type Reminder = {
   reminder: string;
 };
 
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
 export default function WaterChangeToast() {
   const { getUserTanks } = useTankApi();
   const { getTankWaterTests } = useWaterTestApi();
   const [visible, setVisible] = useState(false);
   const [reminders, setReminders] = useState<Reminder[]>([]);
-  const translateX = useRef(new Animated.Value(0)).current;
   const shownUserRef = useRef<string | null>(null);
   const dismissTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const dismiss = useCallback(() => {
+  const dismissAll = useCallback(() => {
     if (dismissTimer.current) clearTimeout(dismissTimer.current);
     dismissTimer.current = null;
-    Animated.timing(translateX, { toValue: -420, duration: 180, useNativeDriver: true }).start(() => setVisible(false));
-  }, [translateX]);
+    setVisible(false);
+    setReminders([]);
+  }, []);
+
+  const dismissReminder = useCallback((id: string) => {
+    setReminders((current) => {
+      const remaining = current.filter((item) => item.id !== id);
+      if (remaining.length === 0) setVisible(false);
+      return remaining;
+    });
+  }, []);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -51,9 +61,8 @@ export default function WaterChangeToast() {
 
         if (!nextReminders.length) return;
         setReminders(nextReminders);
-        translateX.setValue(0);
         setVisible(true);
-        dismissTimer.current = setTimeout(dismiss, 15000);
+        dismissTimer.current = setTimeout(dismissAll, 15000);
       } catch {
         // A reminder should never block the user from entering the app.
       }
@@ -63,45 +72,59 @@ export default function WaterChangeToast() {
       unsubscribe();
       if (dismissTimer.current) clearTimeout(dismissTimer.current);
     };
-  }, [dismiss, getTankWaterTests, getUserTanks, translateX]);
-
-  const panResponder = useRef(PanResponder.create({
-    onMoveShouldSetPanResponder: (_, gestureState) => gestureState.dx < -8 && Math.abs(gestureState.dx) > Math.abs(gestureState.dy),
-    onPanResponderMove: (_, gestureState) => {
-      if (gestureState.dx < 0) translateX.setValue(gestureState.dx);
-    },
-    onPanResponderRelease: (_, gestureState) => {
-      if (gestureState.dx < -70) dismiss();
-      else Animated.spring(translateX, { toValue: 0, useNativeDriver: true }).start();
-    },
-  })).current;
+  }, [dismissAll, getTankWaterTests, getUserTanks]);
 
   if (!visible) return null;
 
   return (
-    <Modal visible transparent animationType="fade" statusBarTranslucent onRequestClose={dismiss}>
+    <Modal visible transparent animationType="fade" statusBarTranslucent onRequestClose={dismissAll}>
       <View pointerEvents="box-none" style={styles.modalLayer}>
-        <Animated.View {...panResponder.panHandlers} style={[styles.toastStack, { transform: [{ translateX }] }]}>
+        <View style={styles.toastStack}>
           {reminders.map((item) => (
-            <View key={item.id} style={styles.toast}>
-              <View style={styles.headerRow}>
-                <View>
-                  <Text style={styles.eyebrow}>AQUA CARE</Text>
-                  <Text style={styles.title}>Water change reminder</Text>
-                </View>
-              </View>
-              <View style={styles.reminderRow}>
-                <View style={styles.dot} />
-                <View style={styles.reminderText}>
-                  <Text style={styles.tankName}>{item.tankName}</Text>
-                  <Text style={styles.reminder}>{item.reminder}</Text>
-                </View>
-              </View>
-            </View>
+            <ReminderToast key={item.id} reminder={item} onDismiss={dismissReminder} />
           ))}
-        </Animated.View>
+        </View>
       </View>
     </Modal>
+  );
+}
+
+function ReminderToast({ reminder, onDismiss }: { reminder: Reminder; onDismiss: (id: string) => void }) {
+  const translateX = useRef(new Animated.Value(0)).current;
+  const panResponder = useRef(PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: () => true,
+    onPanResponderTerminationRequest: () => false,
+    onPanResponderGrant: () => translateX.stopAnimation(),
+    onPanResponderMove: (_, gestureState) => translateX.setValue(gestureState.dx),
+    onPanResponderRelease: (_, gestureState) => {
+      const direction = gestureState.dx < 0 ? -1 : 1;
+      if (Math.abs(gestureState.dx) > 50 || Math.abs(gestureState.vx) > 0.7) {
+        Animated.timing(translateX, { toValue: direction * (SCREEN_WIDTH + 40), duration: 180, useNativeDriver: true })
+          .start(() => onDismiss(reminder.id));
+      } else {
+        Animated.spring(translateX, { toValue: 0, useNativeDriver: true }).start();
+      }
+    },
+    onPanResponderTerminate: () => Animated.spring(translateX, { toValue: 0, useNativeDriver: true }).start(),
+  })).current;
+
+  return (
+    <Animated.View {...panResponder.panHandlers} style={[styles.toast, { transform: [{ translateX }] }]}>
+      <View style={styles.headerRow}>
+        <View>
+          <Text style={styles.eyebrow}>AQUA CARE</Text>
+          <Text style={styles.title}>Water change reminder</Text>
+        </View>
+      </View>
+      <View style={styles.reminderRow}>
+        <View style={styles.dot} />
+        <View style={styles.reminderText}>
+          <Text style={styles.tankName}>{reminder.tankName}</Text>
+          <Text style={styles.reminder}>{reminder.reminder}</Text>
+        </View>
+      </View>
+    </Animated.View>
   );
 }
 

@@ -1,3 +1,4 @@
+import HoldButton from '@/components/ui/HoldButton';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Modal, ScrollView, StyleSheet, SafeAreaView, Text, View, TouchableOpacity } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
@@ -100,12 +101,14 @@ export default function AskAIScreen() {
     mode: currentTheme === 'crimson' ? 'sickness and problems' : currentTheme === 'emerald' ? 'water quality and care' : currentTheme === 'midnight' ? 'tank planning and stocking' : 'general aquarium question',
   });
 
-  const sendMessage = async (message: string, retryIndex?: number) => {
+  const sendMessage = async (message: string, retryIndex?: number, mediaUri?: string) => {
     if (!userId || loading) return;
     const retriedMessage = retryIndex === undefined ? undefined : messages[retryIndex];
     const context = retriedMessage?.context ?? { ...getCurrentContext(), ...(prefillSpeciesName ? { sicknessSpecies: prefillSpeciesName } : {}) };
     const historyMessages = retryIndex === undefined ? messages : messages.slice(0, retryIndex);
-    const images = retryIndex === undefined ? prefillMediaUris : retriedMessage?.imageUrls;
+    const images = retryIndex === undefined
+      ? Array.from(new Set([...prefillMediaUris, ...(mediaUri ? [mediaUri] : [])]))
+      : retriedMessage?.imageUrls;
     const optimistic: AiChatMessage = { ...retriedMessage, question: message, answer: '', context, imageUrls: images };
     setMessages((current) => retryIndex === undefined
       ? [...current, optimistic]
@@ -160,10 +163,10 @@ export default function AskAIScreen() {
                     {item.answer ? <Text style={styles.answer}>{item.answer}</Text> : <ActivityIndicator color="#2E8CA6" />}
                   </View>
                   {item.answer ? (
-                    <TouchableOpacity style={styles.retryButton} onPress={() => sendMessage(item.question, index)} disabled={loading} accessibilityLabel="Retry question">
+                      <HoldButton style={styles.retryButton} onHold={() => sendMessage(item.question, index)} disabled={loading} accessibilityLabel="Hold to retry question">
                       <Feather name="rotate-cw" size={14} color="#A8C4CB" />
                       <Text style={styles.retryText}>Retry</Text>
-                    </TouchableOpacity>
+                      </HoldButton>
                   ) : null}
                 </View>
               ))}
@@ -191,10 +194,11 @@ export default function AskAIScreen() {
           <InputBar
             initialText={prefillText}
             initialMediaUri={prefillMediaUri}
+            initialMediaUris={prefillMediaUris}
             initialMediaType={prefillMediaType}
             showOptions={showMediaOptions}
             onShowOptionsChange={setShowMediaOptions}
-            onSend={sendMessage}
+            onSend={(message, mediaUri) => sendMessage(message, undefined, mediaUri)}
           />
         </View>
       </SafeAreaView>
@@ -223,10 +227,10 @@ export default function AskAIScreen() {
                 </View>
               )) : <Text style={styles.emptyChats}>Your saved conversations will appear here.</Text>}
             </ScrollView>
-            <TouchableOpacity style={styles.newChatButton} onPress={() => { setChatId(undefined); setMessages([]); setHistoryVisible(false); }} activeOpacity={0.8}>
+            <HoldButton style={styles.newChatButton} onHold={() => { setChatId(undefined); setMessages([]); setHistoryVisible(false); }} activeOpacity={0.8} accessibilityLabel="Hold to start new chat">
               <Feather name="plus" size={18} color="#FFFFFF" />
               <Text style={styles.newChat}>New chat</Text>
-            </TouchableOpacity>
+            </HoldButton>
           </View>
         </View>
       </Modal>

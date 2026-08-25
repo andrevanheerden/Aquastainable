@@ -23,6 +23,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { onAuthStateChanged } from 'firebase/auth';
 
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import HoldButton from '@/components/ui/HoldButton';
 import Colors from '../colors';
 import { auth } from '@/firebase';
 import { useTankApi } from '../hooks/useTankApi';
@@ -99,6 +100,7 @@ export default function HomeScreen() {
   const [activeMetricIndex, setActiveMetricIndex] = useState(0);
   const [isAddModalVisible, setIsAddModalVisible] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const tanksRef = useRef<any[]>([]);
   const [form, setForm] = useState({
     tankName: '',
     tankImg: '',
@@ -121,15 +123,19 @@ export default function HomeScreen() {
   const loadTanks = useCallback(async () => {
     if (!currentUserId) {
       setTanks([]);
+      tanksRef.current = [];
       return;
     }
 
     try {
       const response = await getUserTanks(currentUserId);
-      setTanks(Array.isArray(response) ? response : []);
+      const nextTanks = Array.isArray(response) ? response : [];
+      tanksRef.current = nextTanks;
+      setTanks(nextTanks);
       setActiveIndex(0);
     } catch (error) {
       setTanks([]);
+      tanksRef.current = [];
     }
   }, [currentUserId, getUserTanks]);
 
@@ -143,14 +149,15 @@ export default function HomeScreen() {
       onMoveShouldSetPanResponder: (_, gestureState) =>
         Math.abs(gestureState.dy) > Math.abs(gestureState.dx) && Math.abs(gestureState.dy) > 20,
       onPanResponderRelease: (_, gestureState) => {
-        if (tanks.length === 0) {
+        const tankCount = tanksRef.current.length;
+        if (tankCount === 0) {
           return;
         }
 
         if (gestureState.dy < -40) {
-          setActiveIndex((prev) => (prev + 1) % tanks.length);
+          setActiveIndex((prev) => (prev + 1) % tankCount);
         } else if (gestureState.dy > 40) {
-          setActiveIndex((prev) => (prev - 1 + tanks.length) % tanks.length);
+          setActiveIndex((prev) => (prev - 1 + tankCount) % tankCount);
         }
       },
     })
@@ -302,13 +309,13 @@ export default function HomeScreen() {
         </SafeAreaView>
       </ImageBackground> : <SafeAreaView style={styles.emptyHome}><Text style={styles.emptyHomeText}>No tanks have been added yet.</Text></SafeAreaView>}
 
-      <TouchableOpacity
+      <HoldButton
         style={styles.fab}
-        onPress={() => setIsAddModalVisible(true)}
+        onHold={() => setIsAddModalVisible(true)}
         activeOpacity={0.8}
       >
         <Text style={styles.fabText}>＋</Text>
-      </TouchableOpacity>
+      </HoldButton>
 
       <Modal visible={isAddModalVisible} transparent animationType="slide" onRequestClose={() => setIsAddModalVisible(false)}>
         <Pressable style={styles.modalOverlay} onPress={() => setIsAddModalVisible(false)}>
@@ -318,12 +325,12 @@ export default function HomeScreen() {
 
             <Text style={styles.label}>Tank image</Text>
             <View style={styles.imagePickerRow}>
-              <TouchableOpacity style={styles.imagePickerButton} onPress={() => handlePickTankImage('library')}>
+              <HoldButton style={styles.imagePickerButton} onHold={() => handlePickTankImage('library')}>
                 <Text style={styles.imagePickerButtonText}>Choose from gallery</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.imagePickerButtonSecondary} onPress={() => handlePickTankImage('camera')}>
+              </HoldButton>
+              <HoldButton style={styles.imagePickerButtonSecondary} onHold={() => handlePickTankImage('camera')}>
                 <Text style={styles.imagePickerButtonText}>Use camera</Text>
-              </TouchableOpacity>
+              </HoldButton>
             </View>
 
             {form.tankImg ? (
@@ -359,12 +366,12 @@ export default function HomeScreen() {
             />
 
             <View style={styles.modalActions}>
-              <TouchableOpacity style={styles.cancelButton} onPress={() => setIsAddModalVisible(false)}>
+              <HoldButton style={styles.cancelButton} onHold={() => setIsAddModalVisible(false)}>
                 <Text style={styles.cancelButtonText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.submitButton} onPress={handleCreateTank} disabled={loading}>
+              </HoldButton>
+              <HoldButton style={styles.submitButton} onHold={handleCreateTank} disabled={loading}>
                 <Text style={styles.submitButtonText}>{loading ? 'Saving...' : 'Create tank'}</Text>
-              </TouchableOpacity>
+              </HoldButton>
             </View>
           </Pressable>
         </Pressable>

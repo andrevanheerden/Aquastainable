@@ -24,7 +24,7 @@ type Props = {
   onSendToAI: (prefill: FishSicknessPrefill) => void;
 };
 
-const HOLD_DURATION = 2000;
+const HOLD_DURATION = 200;
 
 export default function FishSicknessAssistant({ speciesName, onSendToAI }: Props) {
   const [holdProgress, setHoldProgress] = useState(0);
@@ -33,12 +33,17 @@ export default function FishSicknessAssistant({ speciesName, onSendToAI }: Props
   const [notes, setNotes] = useState(`A ${speciesName} in the school is showing white spots and strange behavior.`);
   const [mediaUris, setMediaUris] = useState<string[]>([]);
   const intervalRef = useRef<number | null>(null);
+  const openModalTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const holdTriggeredRef = useRef(false);
   const holdStartRef = useRef<number>(0);
 
   useEffect(() => {
     return () => {
       if (intervalRef.current !== null) {
         clearInterval(intervalRef.current);
+      }
+      if (openModalTimerRef.current) {
+        clearTimeout(openModalTimerRef.current);
       }
     };
   }, []);
@@ -50,6 +55,7 @@ export default function FishSicknessAssistant({ speciesName, onSendToAI }: Props
 
     setIsHolding(true);
     setHoldProgress(0);
+    holdTriggeredRef.current = false;
     holdStartRef.current = Date.now();
 
     intervalRef.current = setInterval(() => {
@@ -64,7 +70,11 @@ export default function FishSicknessAssistant({ speciesName, onSendToAI }: Props
         }
         setIsHolding(false);
         setHoldProgress(0);
-        setModalVisible(true);
+        holdTriggeredRef.current = true;
+        openModalTimerRef.current = setTimeout(() => {
+          openModalTimerRef.current = null;
+          setModalVisible(true);
+        }, 50);
       }
     }, 16) as unknown as number;
   };
@@ -74,6 +84,11 @@ export default function FishSicknessAssistant({ speciesName, onSendToAI }: Props
       clearInterval(intervalRef.current);
       intervalRef.current = null;
     }
+    if (!holdTriggeredRef.current && openModalTimerRef.current) {
+      clearTimeout(openModalTimerRef.current);
+      openModalTimerRef.current = null;
+    }
+    holdTriggeredRef.current = false;
     setIsHolding(false);
     setHoldProgress(0);
   };
@@ -93,6 +108,7 @@ export default function FishSicknessAssistant({ speciesName, onSendToAI }: Props
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         quality: 0.8,
         allowsEditing: false,
+        base64: true,
       });
     } else {
       result = await ImagePicker.launchImageLibraryAsync({
@@ -101,11 +117,12 @@ export default function FishSicknessAssistant({ speciesName, onSendToAI }: Props
         selectionLimit: Math.max(1, 3 - mediaUris.length),
         quality: 0.8,
         allowsEditing: false,
+        base64: true,
       });
     }
 
     if (!result.canceled && result.assets?.[0]) {
-      const selectedUris = result.assets.map((asset) => asset.uri).filter(Boolean);
+      const selectedUris = result.assets.map((asset) => asset.base64 ? `data:image/jpeg;base64,${asset.base64}` : asset.uri).filter(Boolean);
       setMediaUris((current) => [...current, ...selectedUris].slice(0, 3));
     }
   };
@@ -121,7 +138,7 @@ export default function FishSicknessAssistant({ speciesName, onSendToAI }: Props
     <View style={styles.container}>
       <Text style={styles.sectionTitle}>Fish sickness assistant</Text>
       <Text style={styles.sectionSubtitle}>
-        Hold the button for 2 seconds to start a sickness report for your school. Then add details, attach media, and swipe to send it to the AI.
+        Hold the button for 0.2 seconds to start a sickness report for your school. Then add details, attach media, and swipe to send it to the AI.
       </Text>
 
       <TouchableOpacity

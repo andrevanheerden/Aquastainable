@@ -15,11 +15,11 @@ export default function HoldActionButton({ label, onHold, fillColor, style, text
 
   const startHold = () => {
     progress.setValue(0);
-    Animated.timing(progress, { toValue: 1, duration: 500, useNativeDriver: false }).start();
+    Animated.timing(progress, { toValue: 1, duration: 200, useNativeDriver: false }).start();
     timer.current = setTimeout(() => {
       timer.current = null;
       onHold();
-    }, 500);
+    }, 200);
   };
 
   const cancelHold = () => {

@@ -4,12 +4,21 @@ const aiService = require('./service');
 
 async function uploadQuestionImages(images = []) {
   if (!process.env.CLOUDINARY_URL) return [];
-  const uploads = images.slice(0, 3).filter((image) => typeof image === 'string' && image.trim());
-  const results = await Promise.all(uploads.map((image) => cloudinary.uploader.upload(image, {
-    folder: 'aquastainable/ai-questions',
-    resource_type: 'image',
-  })));
-  return results.map((result) => result.secure_url || result.url).filter(Boolean);
+  const uploads = images.slice(0, 3).filter((image) => (
+    typeof image === 'string' && (image.startsWith('data:image/') || image.startsWith('https://') || image.startsWith('http://'))
+  ));
+  const results = await Promise.all(uploads.map(async (image) => {
+    try {
+      return await cloudinary.uploader.upload(image, {
+        folder: 'aquastainable/ai-questions',
+        resource_type: 'image',
+      });
+    } catch (error) {
+      console.error('AI question image upload error:', error.message || error);
+      return null;
+    }
+  }));
+  return results.filter(Boolean).map((result) => result.secure_url || result.url).filter(Boolean);
 }
 
 function createAiRouter({ db } = {}) {

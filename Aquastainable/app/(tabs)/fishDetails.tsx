@@ -67,7 +67,7 @@ export default function FishDetailsScreen() {
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={{ marginHorizontal: 0 }}>
           <MainFishDisplay
-            image={mainSpecies?.image}
+            image={mainSpecies?.image ? { uri: mainSpecies.image } : undefined}
             title={mainSpecies?.name ?? 'Fish'}
             origin={mainSpecies?.origin}
             lifespan={mainSpecies?.lifespan}

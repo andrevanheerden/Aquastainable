@@ -7,23 +7,25 @@ import { Camera } from 'expo-camera';
 type Props = {
   initialText?: string;
   initialMediaUri?: string | null;
+  initialMediaUris?: string[];
   initialMediaType?: 'image' | 'video' | null;
   showOptions?: boolean;
   onShowOptionsChange?: (show: boolean) => void;
-  onSend?: (text: string) => void;
+  onSend?: (text: string, mediaUri?: string) => void;
 };
 
 export default function InputBar({
   initialText = '',
   initialMediaUri = null,
+  initialMediaUris = [],
   initialMediaType = null,
   showOptions = false,
   onShowOptionsChange = () => {},
   onSend = () => {},
 }: Props) {
   const [text, setText] = useState<string>(initialText);
-  const [selectedMedia, setSelectedMedia] = useState<string | null>(initialMediaUri);
-  const [mediaType, setMediaType] = useState<'image' | 'video' | null>(initialMediaType);
+  const [selectedMedia, setSelectedMedia] = useState<string | null>(initialMediaUri || initialMediaUris[0] || null);
+  const [mediaType, setMediaType] = useState<'image' | 'video' | null>(initialMediaType || (initialMediaUris.length ? 'image' : null));
   const [isFocused, setIsFocused] = useState(false);
 
   const pickMedia = async (source: 'camera' | 'gallery') => {
@@ -57,7 +59,7 @@ export default function InputBar({
   const submit = () => {
     const trimmedText = text.trim();
     if (!trimmedText) return;
-    onSend(trimmedText);
+    onSend(trimmedText, selectedMedia ?? undefined);
     setText('');
   };
 
