@@ -400,6 +400,8 @@ app.get('/tanks/:userId/:tankId', async (req, res) => {
   }
 });
 
-app.listen(4000, () => {
-  console.log('Backend listening on http://localhost:4000');
+const port = Number(process.env.PORT) || 4000;
+
+app.listen(port, '0.0.0.0', () => {
+  console.log(`Backend listening on port ${port}`);
 });
