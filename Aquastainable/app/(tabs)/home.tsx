@@ -26,6 +26,7 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import Colors from '../colors';
 import { auth } from '@/firebase';
 import { useTankApi } from '../hooks/useTankApi';
+import WaterChangeToast from '@/components/WaterChangeToast';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -231,6 +232,7 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.container} {...screenPanResponder.panHandlers}>
+      <WaterChangeToast />
       <StatusBar barStyle="light-content" backgroundColor={Colors.background} />
       {tanks.length > 0 ? <ImageBackground source={tankImage} style={styles.backgroundImage} resizeMode="cover">
         <View style={styles.overlayGradient} />

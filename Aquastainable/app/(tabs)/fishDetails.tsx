@@ -94,8 +94,8 @@ export default function FishDetailsScreen() {
                 params: {
                   theme: 'crimson',
                   prefillText: prefill.text,
-                  prefillMediaUri: prefill.mediaUri ?? undefined,
-                  prefillMediaType: prefill.mediaType ?? undefined,
+                  prefillSpeciesName: prefill.speciesName,
+                  prefillMediaUris: JSON.stringify(prefill.mediaUris),
                 },
               });
             }}

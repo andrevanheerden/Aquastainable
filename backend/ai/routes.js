@@ -1,5 +1,16 @@
 const express = require('express');
+const cloudinary = require('cloudinary').v2;
 const aiService = require('./service');
+
+async function uploadQuestionImages(images = []) {
+  if (!process.env.CLOUDINARY_URL) return [];
+  const uploads = images.slice(0, 3).filter((image) => typeof image === 'string' && image.trim());
+  const results = await Promise.all(uploads.map((image) => cloudinary.uploader.upload(image, {
+    folder: 'aquastainable/ai-questions',
+    resource_type: 'image',
+  })));
+  return results.map((result) => result.secure_url || result.url).filter(Boolean);
+}
 
 function createAiRouter({ db } = {}) {
   const router = express.Router();
@@ -173,7 +184,8 @@ function createAiRouter({ db } = {}) {
       const userId = String(req.body?.userId || '').trim();
       const context = req.body?.context || {};
       const history = Array.isArray(req.body?.history) ? req.body.history.slice(-20) : [];
-      const result = await aiService.answerAssistant(message, context, history);
+      const imageUrls = await uploadQuestionImages(Array.isArray(req.body?.images) ? req.body.images : []);
+      const result = await aiService.answerAssistant(message, { ...context, imageUrls }, history);
 
       if (db && userId) {
         const chats = chatsCollection(userId);
@@ -186,11 +198,11 @@ function createAiRouter({ db } = {}) {
           await chatRef.update({ updatedAt: now });
         }
         const messageRef = chatRef.collection('messages').doc();
-        await messageRef.set({ question: message, answer: result.answer, context, createdAt: now });
-        return res.status(200).json({ ...result, chatId: chatRef.id, messageId: messageRef.id });
+        await messageRef.set({ question: message, answer: result.answer, context: { ...context, imageUrls }, imageUrls, createdAt: now });
+        return res.status(200).json({ ...result, chatId: chatRef.id, messageId: messageRef.id, imageUrls });
       }
 
-      return res.status(200).json(result);
+      return res.status(200).json({ ...result, imageUrls });
     } catch (error) {
       console.error('AI assistant error:', error);
       return res.status(502).json({ error: error.message || 'Remote AI is unavailable.' });

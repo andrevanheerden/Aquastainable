@@ -9,6 +9,7 @@ export type AiChatMessage = {
   answer: string;
   context?: Record<string, unknown>;
   createdAt?: string;
+  imageUrls?: string[];
 };
 
 export type AiChat = {
@@ -38,7 +39,7 @@ export function useAiApi() {
     }
   }, []);
 
-  const askAssistant = useCallback(async (payload: { userId: string; chatId?: string; message: string; context: Record<string, unknown>; history: Array<{ role: 'user' | 'assistant'; content: string }> }) => request<{ answer: string; model: string; chatId: string }>('post', '/ai/assistant', payload), [request]);
+  const askAssistant = useCallback(async (payload: { userId: string; chatId?: string; message: string; context: Record<string, unknown>; history: Array<{ role: 'user' | 'assistant'; content: string }>; images?: string[] }) => request<{ answer: string; model: string; chatId: string; imageUrls?: string[] }>('post', '/ai/assistant', payload), [request]);
   const getChats = useCallback((userId: string) => request<AiChat[]>('get', '/ai/assistant/chats', { userId }), [request]);
   const getChat = useCallback((userId: string, chatId: string) => request<AiChat>('get', `/ai/assistant/chats/${chatId}`, { userId }), [request]);
   const deleteChat = useCallback((userId: string, chatId: string) => request<void>('delete', `/ai/assistant/chats/${chatId}`, { userId }), [request]);

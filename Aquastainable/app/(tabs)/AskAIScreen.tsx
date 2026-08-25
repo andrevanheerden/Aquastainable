@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Modal, ScrollView, StyleSheet, SafeAreaView, Text, View, TouchableOpacity } from 'react-native';
+import { ActivityIndicator, Alert, Image, Modal, ScrollView, StyleSheet, SafeAreaView, Text, View, TouchableOpacity } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { onAuthStateChanged } from 'firebase/auth';
 import { Feather } from '@expo/vector-icons';
@@ -23,6 +23,8 @@ export default function AskAIScreen() {
     prefillText?: string;
     prefillMediaUri?: string;
     prefillMediaType?: 'image' | 'video';
+    prefillMediaUris?: string;
+    prefillSpeciesName?: string;
   }>();
 
   const initialTheme = params.theme ?? 'default';
@@ -40,6 +42,10 @@ export default function AskAIScreen() {
   const prefillText = params.prefillText ?? '';
   const prefillMediaUri = params.prefillMediaUri ?? null;
   const prefillMediaType = params.prefillMediaType ?? null;
+  const prefillMediaUris = (() => {
+    try { return params.prefillMediaUris ? JSON.parse(params.prefillMediaUris) as string[] : []; } catch { return []; }
+  })();
+  const prefillSpeciesName = params.prefillSpeciesName ?? '';
   const { getUserTanks } = useTankApi();
   const { getUserFish } = useFishApi();
   const { getUserPlants } = usePlantApi();
@@ -97,9 +103,10 @@ export default function AskAIScreen() {
   const sendMessage = async (message: string, retryIndex?: number) => {
     if (!userId || loading) return;
     const retriedMessage = retryIndex === undefined ? undefined : messages[retryIndex];
-    const context = retriedMessage?.context ?? getCurrentContext();
+    const context = retriedMessage?.context ?? { ...getCurrentContext(), ...(prefillSpeciesName ? { sicknessSpecies: prefillSpeciesName } : {}) };
     const historyMessages = retryIndex === undefined ? messages : messages.slice(0, retryIndex);
-    const optimistic: AiChatMessage = { ...retriedMessage, question: message, answer: '', context };
+    const images = retryIndex === undefined ? prefillMediaUris : retriedMessage?.imageUrls;
+    const optimistic: AiChatMessage = { ...retriedMessage, question: message, answer: '', context, imageUrls: images };
     setMessages((current) => retryIndex === undefined
       ? [...current, optimistic]
       : current.map((item, index) => index === retryIndex ? optimistic : item));
@@ -109,11 +116,12 @@ export default function AskAIScreen() {
         chatId,
         message,
         context,
+        images,
         history: historyMessages.flatMap((item) => [{ role: 'user' as const, content: item.question }, ...(item.answer ? [{ role: 'assistant' as const, content: item.answer }] : [])]),
       });
       setChatId(result.chatId);
       setMessages((current) => retryIndex === undefined
-        ? [...current.slice(0, -1), { question: message, answer: result.answer, context }]
+        ? [...current.slice(0, -1), { question: message, answer: result.answer, context, imageUrls: result.imageUrls }]
         : current.map((item, index) => index === retryIndex ? { ...item, answer: result.answer, context } : item));
     } catch {
       setMessages((current) => retryIndex === undefined
@@ -142,6 +150,11 @@ export default function AskAIScreen() {
                 <View key={`${item.question}-${index}`} style={styles.messageBlock}>
                   <View style={styles.questionCard}>
                     <Text style={styles.question}>{item.question}</Text>
+                    {item.imageUrls?.length ? (
+                      <View style={styles.questionImages}>
+                        {item.imageUrls.slice(0, 3).map((imageUrl) => <Image key={imageUrl} source={{ uri: imageUrl }} style={styles.questionImage} />)}
+                      </View>
+                    ) : null}
                   </View>
                   <View style={styles.answerBlock}>
                     {item.answer ? <Text style={styles.answer}>{item.answer}</Text> : <ActivityIndicator color="#2E8CA6" />}
@@ -270,6 +283,16 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     marginBottom: 8,
+  },
+  questionImages: {
+    flexDirection: 'row',
+    gap: 6,
+    marginTop: 10,
+  },
+  questionImage: {
+    width: 64,
+    height: 64,
+    borderRadius: 8,
   },
   answer: {
     color: 'rgba(255,255,255,0.86)',

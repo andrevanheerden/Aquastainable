@@ -15,8 +15,7 @@ import SwipeCheckButton from './SwipeCheckButton';
 
 export type FishSicknessPrefill = {
   text: string;
-  mediaUri: string | null;
-  mediaType: 'image' | 'video' | null;
+  mediaUris: string[];
   speciesName: string;
 };
 
@@ -32,8 +31,7 @@ export default function FishSicknessAssistant({ speciesName, onSendToAI }: Props
   const [isHolding, setIsHolding] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [notes, setNotes] = useState(`A ${speciesName} in the school is showing white spots and strange behavior.`);
-  const [mediaUri, setMediaUri] = useState<string | null>(null);
-  const [mediaType, setMediaType] = useState<'image' | 'video' | null>(null);
+  const [mediaUris, setMediaUris] = useState<string[]>([]);
   const intervalRef = useRef<number | null>(null);
   const holdStartRef = useRef<number>(0);
 
@@ -81,7 +79,9 @@ export default function FishSicknessAssistant({ speciesName, onSendToAI }: Props
   };
 
   const handlePickMedia = async (mode: 'camera' | 'gallery') => {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    const permission = mode === 'camera'
+      ? await ImagePicker.requestCameraPermissionsAsync()
+      : await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
       Alert.alert('Permission needed', 'Allow access to your photos to attach an image or video.');
       return;
@@ -90,30 +90,30 @@ export default function FishSicknessAssistant({ speciesName, onSendToAI }: Props
     let result;
     if (mode === 'camera') {
       result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.All,
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
         quality: 0.8,
         allowsEditing: false,
       });
     } else {
       result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.All,
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsMultipleSelection: true,
+        selectionLimit: Math.max(1, 3 - mediaUris.length),
         quality: 0.8,
         allowsEditing: false,
       });
     }
 
     if (!result.canceled && result.assets?.[0]) {
-      const asset = result.assets[0];
-      setMediaUri(asset.uri ?? null);
-      setMediaType(asset.type === 'video' ? 'video' : 'image');
+      const selectedUris = result.assets.map((asset) => asset.uri).filter(Boolean);
+      setMediaUris((current) => [...current, ...selectedUris].slice(0, 3));
     }
   };
 
   const handleSend = () => {
-    onSendToAI({ text: notes, mediaUri, mediaType, speciesName });
+    onSendToAI({ text: notes, mediaUris, speciesName });
     setModalVisible(false);
-    setMediaUri(null);
-    setMediaType(null);
+    setMediaUris([]);
     setNotes(`A ${speciesName} in the school is showing white spots and strange behavior.`);
   };
 
@@ -141,7 +141,7 @@ export default function FishSicknessAssistant({ speciesName, onSendToAI }: Props
           <TouchableOpacity style={styles.backdropTouchable} activeOpacity={1} onPress={() => setModalVisible(false)} />
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>Sickness report</Text>
-            <Text style={styles.modalDescription}>Describe the fish behavior and attach a photo or video.</Text>
+            <Text style={styles.modalDescription}>Describe the fish behavior and attach up to three photos.</Text>
             <TextInput
               value={notes}
               onChangeText={setNotes}
@@ -158,10 +158,10 @@ export default function FishSicknessAssistant({ speciesName, onSendToAI }: Props
                 <Text style={styles.mediaButtonText}>Gallery</Text>
               </TouchableOpacity>
             </View>
-            {mediaUri ? (
+            {mediaUris.length ? (
               <View style={styles.mediaPreview}>
-                <Image source={{ uri: mediaUri }} style={styles.previewImage} />
-                <Text style={styles.mediaLabel}>{mediaType === 'video' ? 'Video attached' : 'Photo attached'}</Text>
+                <View style={styles.previewRow}>{mediaUris.map((uri) => <Image key={uri} source={{ uri }} style={styles.previewImage} />)}</View>
+                <Text style={styles.mediaLabel}>{mediaUris.length} photo{mediaUris.length === 1 ? '' : 's'} attached</Text>
               </View>
             ) : null}
             <SwipeCheckButton label="Swipe to send to AI" onSwipe={handleSend} />
@@ -286,8 +286,12 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.08)',
   },
   previewImage: {
-    width: '100%',
+    flex: 1,
     height: 180,
+  },
+  previewRow: {
+    flexDirection: 'row',
+    gap: 4,
   },
   mediaLabel: {
     color: '#FFFFFF',
