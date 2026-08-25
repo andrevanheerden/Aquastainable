@@ -61,6 +61,8 @@ export default function InputBar({
     if (!trimmedText) return;
     onSend(trimmedText, selectedMedia ?? undefined);
     setText('');
+    setSelectedMedia(null);
+    setMediaType(null);
   };
 
   return (

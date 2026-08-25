@@ -46,6 +46,10 @@ export default function AskAIScreen() {
   const prefillMediaUris = (() => {
     try { return params.prefillMediaUris ? JSON.parse(params.prefillMediaUris) as string[] : []; } catch { return []; }
   })();
+  const [pendingMediaUris, setPendingMediaUris] = useState<string[]>(() => Array.from(new Set([
+    ...prefillMediaUris,
+    ...(prefillMediaUri ? [prefillMediaUri] : []),
+  ])));
   const prefillSpeciesName = params.prefillSpeciesName ?? '';
   const { getUserTanks } = useTankApi();
   const { getUserFish } = useFishApi();
@@ -107,8 +111,9 @@ export default function AskAIScreen() {
     const context = retriedMessage?.context ?? { ...getCurrentContext(), ...(prefillSpeciesName ? { sicknessSpecies: prefillSpeciesName } : {}) };
     const historyMessages = retryIndex === undefined ? messages : messages.slice(0, retryIndex);
     const images = retryIndex === undefined
-      ? Array.from(new Set([...prefillMediaUris, ...(mediaUri ? [mediaUri] : [])]))
+      ? Array.from(new Set([...pendingMediaUris, ...(mediaUri ? [mediaUri] : [])]))
       : retriedMessage?.imageUrls;
+    if (retryIndex === undefined) setPendingMediaUris([]);
     const optimistic: AiChatMessage = { ...retriedMessage, question: message, answer: '', context, imageUrls: images };
     setMessages((current) => retryIndex === undefined
       ? [...current, optimistic]
@@ -194,7 +199,7 @@ export default function AskAIScreen() {
           <InputBar
             initialText={prefillText}
             initialMediaUri={prefillMediaUri}
-            initialMediaUris={prefillMediaUris}
+            initialMediaUris={pendingMediaUris}
             initialMediaType={prefillMediaType}
             showOptions={showMediaOptions}
             onShowOptionsChange={setShowMediaOptions}
