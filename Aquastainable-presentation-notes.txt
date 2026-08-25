@@ -1,0 +1,426 @@
+AQUASTAINABLE PRESENTATION NOTES
+================================
+
+Purpose
+-------
+This file is a presentation guide for the Aquastainable project. It explains selected
+code pieces from the real application, where each piece is located, and why it matters.
+The examples are intentionally small enough to explain during a presentation while still
+showing how the application works from screen to backend to AI service.
+
+Suggested presentation order
+----------------------------
+1. What problem Aquastainable solves
+2. The AI safety rule
+3. How a tank overview is created
+4. How the fish-add flow collects and checks data
+5. How water-test results become useful advice
+6. Technology stack and overall architecture
+
+
+1. THE AI RULE: SAFETY BEFORE AN ANSWER
+=======================================
+Source page: Aquastainable/backend/ai/prompts.js
+Main code: AQUARIUM_SYSTEM_PROMPT
+
+Important code piece:
+
+const AQUARIUM_SYSTEM_PROMPT = `You are Aqua freshwater aquarium assistant
+and teacher of Aquastainable.
+
+SCOPE
+- Answer only questions about freshwater fish, aquarium plants, tanks,
+  filtration, cycling, feeding, compatibility, stocking, water tests,
+  water quality, and routine aquarium care.
+
+SAFETY AND DECISION RULES
+- Protect animal welfare over satisfying the user's request.
+- Never recommend incompatible fish together.
+- Never encourage overstocking.
+- Treat ammonia and nitrite above 0 ppm as dangerous.
+- Do not advise adding fish while either is detectable.
+- Treat chlorine or chloramine as dangerous and require water conditioner.
+...`;
+
+What this does
+--------------
+This is the system instruction sent to the LLM before the user's question. It defines
+the assistant's scope and its safety behaviour. The AI is not a general chatbot: it is
+restricted to freshwater aquarium care.
+
+The rule is especially important because aquarium advice can affect living animals. The
+prompt tells the model to check adult size, temperament, aggression, temperature, pH,
+hardness, space, and schooling needs before recommending fish together. It also makes
+ammonia and nitrite above zero a safety problem instead of treating them as ordinary
+numbers.
+
+The prompt also controls the response style. Simple questions receive a short answer,
+while illness, maintenance, and how-to questions receive numbered steps. This keeps the
+assistant useful for beginners instead of returning a large generic care guide every time.
+
+Presentation point
+------------------
+The AI rule is part of the product design, not just an API setting. The application uses
+prompt rules to make the assistant more careful, focused, and appropriate for animal care.
+The AI output is still educational guidance, not a replacement for a qualified aquatic
+professional.
+
+
+2. HOW A TANK OVERVIEW IS MADE
+==============================
+Source page: Aquastainable/backend/ai/routes.js
+Main code: POST /ai/tank-overview
+
+Important code piece:
+
+const [fishSnapshot, plantsSnapshot, waterTestsSnapshot,
+  waterTestsLegacySnapshot] = await Promise.all([
+  tankRef.collection('fish').get(),
+  tankRef.collection('plants').get(),
+  tankRef.collection('waterTests').get(),
+  tankRef.collection('water_tests').get(),
+]);
+
+const fish = toRecords(fishSnapshot);
+const plants = toRecords(plantsSnapshot);
+const waterTests = [...toRecords(waterTestsSnapshot),
+  ...toRecords(waterTestsLegacySnapshot)];
+
+const sourceData = { tank: tankSourceData, fish, plants, waterTests };
+const fingerprint = JSON.stringify({ tank: tankSourceData,
+  fish, plants, waterTests });
+
+if (stored.overview && stored.overviewDataFingerprint === fingerprint) {
+  return res.status(200).json({ overview: stored.overview, generated: false });
+}
+
+const generated = await aiService.generateTankOverview(sourceData);
+await tankRef.update({
+  overview: generated.overview,
+  overviewDataFingerprint: fingerprint,
+  overviewUpdatedAt: new Date().toISOString(),
+});
+
+What this does
+--------------
+When a user opens a tank, the backend loads the tank document and its related fish,
+plants, and water-test collections in parallel. It combines those records into one
+structured object called sourceData.
+
+Images and internal overview metadata are removed before the data is sent to the LLM.
+This keeps the prompt smaller and prevents unnecessary media or cache fields from
+influencing the written summary.
+
+The fingerprint is a compact record of the data used to create the overview. If the tank,
+fish, plants, and tests have not changed, the old overview is returned. That avoids an
+unnecessary LLM request, reduces latency, and saves API usage. When something changes,
+the backend generates a new paragraph and stores both the paragraph and its fingerprint.
+
+The prompt for this feature is in:
+Aquastainable/backend/ai/prompts.js, function tankOverviewPrompt
+
+That prompt asks for a simple paragraph of no more than 150 words. It tells the model to
+mention the tank name and size, summarize current livestock and water quality, and avoid
+inventing fish, plants, or test results.
+
+Presentation point
+------------------
+This feature demonstrates that the AI is grounded in the user's actual data. The model
+does not receive a vague request to "describe my tank"; it receives a carefully assembled
+snapshot of that specific tank.
+
+
+3. HOW THE APP COLLECTS DATA FOR ADDING A FISH
+===============================================
+This flow crosses three files and shows the frontend, API hook, backend, and LLM working
+together.
+
+A. The screen gets the signed-in user and their tanks
+-----------------------------------------------------
+Source page: Aquastainable/components/fish&Plants/AddFishModal.tsx
+
+Important code piece:
+
+useEffect(() => {
+  const unsubscribe = onAuthStateChanged(auth, (user) => {
+    setCurrentUserId(user?.uid ?? null);
+  });
+  return () => unsubscribe();
+}, []);
+
+useEffect(() => {
+  if (!currentUserId) {
+    setTanks([]);
+    setSelectedTank(null);
+    return;
+  }
+
+  getUserTanks(currentUserId).then((userTanks) => {
+    const nextTanks = Array.isArray(userTanks) ? userTanks : [];
+    setTanks(nextTanks);
+    setSelectedTank(nextTanks[0]?.tankId ?? null);
+  });
+}, [currentUserId, getUserTanks]);
+
+Explanation
+-----------
+Firebase Auth supplies the current user's ID and keeps the screen in sync with sign-in
+state. The screen does not query Firestore directly. Once the ID is available, it asks the
+backend API for that user's tanks and lets the user select the destination tank.
+
+B. The screen searches the fish catalogue as the user types
+------------------------------------------------------------
+Source page: Aquastainable/components/fish&Plants/AddFishModal.tsx
+
+Important code piece:
+
+useEffect(() => {
+  const trimmedQuery = speciesQuery.trim();
+  if (!trimmedQuery) {
+    setFishSuggestions([]);
+    return;
+  }
+
+  const searchAsync = async () => {
+    setSearchLoading(true);
+    try {
+      const results = await searchFish(trimmedQuery);
+      setFishSuggestions(Array.isArray(results) ? results : []);
+    } finally {
+      setSearchLoading(false);
+    }
+  };
+
+  searchAsync();
+}, [speciesQuery, searchFish]);
+
+Explanation
+-----------
+Every time the search text changes, the frontend calls searchFish. The hook turns that
+into a GET request to /fish/search?query=... and URL-encodes the text. The selected result
+provides the fish ID, common name, scientific name, image, and catalogue metadata.
+
+C. The frontend builds the compatibility request
+-------------------------------------------------
+Source page: Aquastainable/components/fish&Plants/AddFishModal.tsx
+
+Important code piece:
+
+const getFishPayload = (targetTankId: string) => ({
+  userId: currentUserId as string,
+  tankId: targetTankId,
+  fishId: selectedFish?.id as string,
+  schoolSize: schoolSize.trim(),
+  name: selectedFish?.name,
+  scientificName: selectedFish?.scientificName,
+  image: selectedFish?.image,
+  imageSourceUrl: selectedFish?.imageSourceUrl,
+  imageLicense: selectedFish?.imageLicense,
+  source: selectedFish?.source,
+});
+
+const result = await assessFishAddition(getFishPayload(selectedTank));
+setAssessment(result);
+setCompatibilityVisible(true);
+
+Explanation
+-----------
+The payload combines four types of information:
+
+- User data: userId from Firebase Auth.
+- User choice: selected tank and requested school size.
+- Catalogue data: fish ID, names, image, and source information.
+- The API's responsibility: current livestock, plants, water tests, and other tanks.
+
+The user sees the compatibility result before the fish is saved. If the user leaves the
+school size blank, the AI can return an optimal school size and the screen fills it in.
+
+D. The API hook sends the request to Express
+---------------------------------------------
+Source page: Aquastainable/app/hooks/useFishApi.ts
+
+Important code piece:
+
+const assessFishAddition = useCallback(async (payload) => {
+  return requestApi<FishCompatibilityAssessment>(
+    'post',
+    '/fish/assess-add',
+    payload,
+  );
+}, [requestApi]);
+
+Explanation
+-----------
+The hook is the frontend boundary for fish API calls. Components do not need to know the
+full backend URL or Axios configuration. They call a typed helper and receive a typed
+FishCompatibilityAssessment response.
+
+E. The backend collects all relevant aquarium context
+------------------------------------------------------
+Source page: Aquastainable/backend/fish/routes.js
+Main functions: getTankContexts and assessAddition
+
+Important code piece:
+
+async function assessAddition(db, body) {
+  const contexts = await getTankContexts(db, body.userId);
+  const selectedTank = contexts.find(
+    (item) => item.id === String(body.tankId),
+  );
+
+  const assessment = await aiService.assessFishCompatibility({
+    fish: fishInput(body),
+    schoolSize: body.schoolSize,
+    selectedTank,
+    otherTanks: contexts.filter(
+      (item) => item.id !== selectedTank.id,
+    ),
+  });
+
+  return {
+    ...assessment,
+    selectedTankId: selectedTank.id,
+    selectedTankName: selectedTank.name,
+  };
+}
+
+Explanation
+-----------
+getTankContexts first finds every tank owned by the user. For each tank, it loads the
+fish, plants, and water-test subcollections. This means the compatibility decision can
+consider both the selected tank and a safer alternative tank owned by the same user.
+
+The backend then sends the selected fish, requested school size, selected tank context,
+and other tank contexts to the fish compatibility prompt. It normalizes the result before
+returning it to the app, including a compatible/incompatible status and any suggested tank.
+
+F. The fish is only saved after review
+---------------------------------------
+Source page: Aquastainable/backend/fish/routes.js
+Route: POST /fish/add-reviewed
+
+The route rejects the request when assessment.canAdd is false. When it is safe, it checks
+tank ownership again, generates a missing fish care profile, and creates a fish document
+under tanks/{tankId}/fish. This second backend check is important: a client should not be
+able to bypass the compatibility step simply by sending a direct add request.
+
+Presentation point
+------------------
+This is a complete user-to-AI pipeline: Firebase identifies the user, the screen gathers
+choices and catalogue data, the API gathers private aquarium records, the LLM assesses
+compatibility, and the backend makes the final save decision.
+
+
+4. WATER TESTS: TURNING NUMBERS INTO ACTION
+============================================
+This is the additional important feature because it connects routine maintenance, stored
+data, image upload, and safety-focused AI advice.
+
+Source page: Aquastainable/backend/index.js
+Route: POST /water-tests
+
+Important code piece:
+
+const { userId, tankId, readings = {}, image, testedAt } = req.body || {};
+
+if (!userId || !tankId || !testedAt) {
+  return res.status(400).json({
+    error: 'userId, tankId, and testedAt are required.',
+  });
+}
+
+if (!readings || !String(readings.ph || '').trim()
+    || !String(readings.temperatureC || '').trim()) {
+  return res.status(400).json({
+    error: 'pH and water temperature are required.',
+  });
+}
+
+const normalizedReadings = Object.fromEntries(
+  Object.entries(readings)
+    .filter(([, value]) => value !== null && value !== undefined
+      && String(value).trim() !== '')
+    .map(([key, value]) => [key, String(value).trim()]),
+);
+
+What this does
+--------------
+The API validates the minimum information needed for a useful test and removes empty
+reading fields. It then checks that the tank exists and belongs to the supplied user.
+This prevents a user from saving test information into someone else's tank.
+
+If an image is included and Cloudinary is configured, the backend uploads it and stores the
+resulting URL. The raw image does not need to be stored inside the Firestore document.
+
+The backend also loads the fish in the tank and sends the tank details, fish, readings,
+and test date to reviewWaterTest in the AI service. The LLM returns structured JSON with:
+
+- waterQuality: Excellent, Good, Fair, or Needs attention
+- summary: a short explanation
+- nextWaterChange: a practical next action
+
+If the AI service is unavailable, the test is still saved with a safe fallback message and
+aiReviewSkipped set to true. This keeps the user's measurement record instead of losing it
+because a remote service failed.
+
+Presentation point
+------------------
+The water-test feature is more than a form. It turns raw pH, temperature, ammonia, and
+nitrite values into a dated record, a readable status, and a maintenance recommendation.
+It also keeps the safety rule consistent: detectable ammonia or nitrite is treated as an
+urgent condition and should not lead to adding more fish.
+
+
+5. OVERALL ARCHITECTURE
+=======================
+
+Mobile app
+----------
+React Native and Expo render the screens. Expo Router handles file-based navigation.
+Frontend hooks such as useFishApi and useTankApi keep HTTP calls in one place. Firebase
+Auth provides the current session state, while the app uses the backend for Firestore CRUD.
+
+Backend API
+-----------
+Node.js and Express expose routes for authentication, tanks, fish, plants, water tests,
+and AI. Firebase Admin reads and writes Firestore on the server. Ownership checks happen
+before user-owned tank data is read or changed.
+
+AI service
+----------
+backend/ai/service.js provides task functions such as answerAssistant,
+generateTankOverview, assessFishCompatibility, and reviewWaterTest. Each function uses a
+specific prompt from prompts.js and sends the request through providers/groqProvider.js.
+The provider calls Groq's OpenAI-compatible Chat Completions API using GROQ_API_KEY and
+GROQ_MODEL from backend/.env.
+
+Media
+-----
+Expo Camera and Image Picker provide images or short videos. Cloudinary stores supported
+images and the backend returns URLs. The AI prompt removes base64 and image fields from
+structured context, while uploaded image URLs can be passed to the assistant when useful.
+
+
+6. KEY TAKEAWAYS FOR THE PRESENTATION
+=====================================
+
+- Aquastainable is a full data flow, not only a collection of screens.
+- The frontend collects user input and calls typed API hooks.
+- The backend owns Firestore access and combines records into useful context.
+- The LLM is given task-specific prompts instead of one vague instruction.
+- Safety rules protect fish by handling overstocking and dangerous water values clearly.
+- Tank-overview fingerprints reduce repeated AI calls when data has not changed.
+- Compatibility is checked before a fish is saved, and the backend validates the final save.
+- Water tests remain useful even when the remote AI service is temporarily unavailable.
+
+Useful source files
+-------------------
+- Aquastainable/components/fish&Plants/AddFishModal.tsx
+- Aquastainable/app/hooks/useFishApi.ts
+- Aquastainable/app/hooks/useTankApi.ts
+- Aquastainable/backend/index.js
+- Aquastainable/backend/fish/routes.js
+- Aquastainable/backend/ai/routes.js
+- Aquastainable/backend/ai/service.js
+- Aquastainable/backend/ai/prompts.js
+- Aquastainable/backend/ai/providers/groqProvider.js
