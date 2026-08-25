@@ -1,6 +1,6 @@
 import HoldButton from '@/components/ui/HoldButton';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Image, Modal, ScrollView, StyleSheet, SafeAreaView, Text, View, TouchableOpacity } from 'react-native';
+import { ActivityIndicator, Alert, Image, Keyboard, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, SafeAreaView, Text, View, TouchableOpacity } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { onAuthStateChanged } from 'firebase/auth';
 import { Feather } from '@expo/vector-icons';
@@ -40,6 +40,7 @@ export default function AskAIScreen() {
   const [chatId, setChatId] = useState<string | undefined>();
   const [chats, setChats] = useState<AiChat[]>([]);
   const [historyVisible, setHistoryVisible] = useState(false);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
   const prefillText = params.prefillText ?? '';
   const prefillMediaUri = params.prefillMediaUri ?? null;
   const prefillMediaType = params.prefillMediaType ?? null;
@@ -57,6 +58,15 @@ export default function AskAIScreen() {
   const { askAssistant, getChats, getChat, deleteChat, loading } = useAiApi();
 
   useEffect(() => onAuthStateChanged(auth, (user) => setUserId(user?.uid ?? null)), []);
+  useEffect(() => {
+    const showSubscription = Keyboard.addListener('keyboardDidShow', () => setKeyboardVisible(true));
+    const hideSubscription = Keyboard.addListener('keyboardDidHide', () => setKeyboardVisible(false));
+
+    return () => {
+      showSubscription.remove();
+      hideSubscription.remove();
+    };
+  }, []);
   useEffect(() => {
     if (!userId) return;
     Promise.all([getUserTanks(userId), getUserFish(userId), getUserPlants(userId)])
@@ -143,69 +153,76 @@ export default function AskAIScreen() {
 
   return (
     <WaveBackground theme={currentTheme}>
-      <SafeAreaView style={styles.safeArea}>
-        <Header onMenu={loadChats} />
+      <SafeAreaView style={[styles.safeArea, keyboardVisible && styles.safeAreaKeyboard]}>
+        <KeyboardAvoidingView
+          style={styles.keyboardAvoidingView}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
+        >
+          <Header onMenu={loadChats} />
 
-        <View style={styles.content}>
-          {messages.length ? (
-            <ScrollView
-              style={styles.chatScroll}
-              contentContainerStyle={styles.chatContent}
-              showsVerticalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
-            >
-              {messages.map((item, index) => (
-                <View key={`${item.question}-${index}`} style={styles.messageBlock}>
-                  <View style={styles.questionCard}>
-                    <Text style={styles.question}>{item.question}</Text>
-                    {item.imageUrls?.length ? (
-                      <View style={styles.questionImages}>
-                        {item.imageUrls.slice(0, 3).map((imageUrl) => <Image key={imageUrl} source={{ uri: imageUrl }} style={styles.questionImage} />)}
-                      </View>
+          <View style={styles.content}>
+            {messages.length ? (
+              <ScrollView
+                style={styles.chatScroll}
+                contentContainerStyle={styles.chatContent}
+                showsVerticalScrollIndicator={false}
+                keyboardDismissMode="none"
+                keyboardShouldPersistTaps="always"
+              >
+                {messages.map((item, index) => (
+                  <View key={`${item.question}-${index}`} style={styles.messageBlock}>
+                    <View style={styles.questionCard}>
+                      <Text style={styles.question}>{item.question}</Text>
+                      {item.imageUrls?.length ? (
+                        <View style={styles.questionImages}>
+                          {item.imageUrls.slice(0, 3).map((imageUrl) => <Image key={imageUrl} source={{ uri: imageUrl }} style={styles.questionImage} />)}
+                        </View>
+                      ) : null}
+                    </View>
+                    <View style={styles.answerBlock}>
+                      {item.answer ? <Text style={styles.answer}>{item.answer}</Text> : <ActivityIndicator color="#2E8CA6" />}
+                    </View>
+                    {item.answer ? (
+                        <HoldButton style={styles.retryButton} onHold={() => sendMessage(item.question, index)} disabled={loading} accessibilityLabel="Hold to retry question">
+                        <Feather name="rotate-cw" size={14} color="#A8C4CB" />
+                        <Text style={styles.retryText}>Retry</Text>
+                      </HoldButton>
                     ) : null}
                   </View>
-                  <View style={styles.answerBlock}>
-                    {item.answer ? <Text style={styles.answer}>{item.answer}</Text> : <ActivityIndicator color="#2E8CA6" />}
-                  </View>
-                  {item.answer ? (
-                      <HoldButton style={styles.retryButton} onHold={() => sendMessage(item.question, index)} disabled={loading} accessibilityLabel="Hold to retry question">
-                      <Feather name="rotate-cw" size={14} color="#A8C4CB" />
-                      <Text style={styles.retryText}>Retry</Text>
-                      </HoldButton>
-                  ) : null}
-                </View>
-              ))}
-            </ScrollView>
-          ) : (
-            <>
-              <HeroSection logoSource={null} />
-              <SuggestionPills
-                activeTheme={currentTheme}
-                onSelectPill={(theme: ThemeType) => setCurrentTheme(theme)}
-              />
-            </>
-          )}
-        </View>
+                ))}
+              </ScrollView>
+            ) : (
+              <>
+                <HeroSection logoSource={null} />
+                <SuggestionPills
+                  activeTheme={currentTheme}
+                  onSelectPill={(theme: ThemeType) => setCurrentTheme(theme)}
+                />
+              </>
+            )}
+          </View>
 
-        {showMediaOptions ? (
-          <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={() => setShowMediaOptions(false)} />
-        ) : null}
+          {showMediaOptions ? (
+            <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={() => setShowMediaOptions(false)} />
+          ) : null}
 
-        {!messages.length ? <View style={styles.bottomSection}>
-          <ActionToggles tanks={tankOptions} species={speciesOptions} onSelectionChange={setSelection} />
-        </View> : null}
+          {!messages.length ? <View style={styles.bottomSection}>
+            <ActionToggles tanks={tankOptions} species={speciesOptions} onSelectionChange={setSelection} />
+          </View> : null}
 
-        <View style={styles.inputLayer} pointerEvents="box-none">
-          <InputBar
-            initialText={prefillText}
-            initialMediaUri={prefillMediaUri}
-            initialMediaUris={pendingMediaUris}
-            initialMediaType={prefillMediaType}
-            showOptions={showMediaOptions}
-            onShowOptionsChange={setShowMediaOptions}
-            onSend={(message, mediaUri) => sendMessage(message, undefined, mediaUri)}
-          />
-        </View>
+          <View style={styles.inputLayer} pointerEvents="box-none">
+            <InputBar
+              initialText={prefillText}
+              initialMediaUri={prefillMediaUri}
+              initialMediaUris={pendingMediaUris}
+              initialMediaType={prefillMediaType}
+              showOptions={showMediaOptions}
+              onShowOptionsChange={setShowMediaOptions}
+              onSend={(message, mediaUri) => sendMessage(message, undefined, mediaUri)}
+            />
+          </View>
+        </KeyboardAvoidingView>
       </SafeAreaView>
       <Modal visible={historyVisible} transparent animationType="slide" onRequestClose={() => setHistoryVisible(false)}>
         <View style={styles.historyBackdrop}>
@@ -245,6 +262,12 @@ export default function AskAIScreen() {
 
 const styles = StyleSheet.create({
   safeArea: {
+    flex: 1,
+  },
+  safeAreaKeyboard: {
+    paddingBottom: 8,
+  },
+  keyboardAvoidingView: {
     flex: 1,
   },
   content: {

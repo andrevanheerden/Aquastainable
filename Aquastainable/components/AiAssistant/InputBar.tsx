@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Alert, Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import React, { useRef, useState } from 'react';
+import { Alert, Image, Keyboard, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { Camera } from 'expo-camera';
@@ -27,6 +27,7 @@ export default function InputBar({
   const [selectedMedia, setSelectedMedia] = useState<string | null>(initialMediaUri || initialMediaUris[0] || null);
   const [mediaType, setMediaType] = useState<'image' | 'video' | null>(initialMediaType || (initialMediaUris.length ? 'image' : null));
   const [isFocused, setIsFocused] = useState(false);
+  const inputRef = useRef<TextInput>(null);
 
   const pickMedia = async (source: 'camera' | 'gallery') => {
     try {
@@ -82,19 +83,29 @@ export default function InputBar({
             <TouchableOpacity style={styles.optionTile} onPress={() => pickMedia('gallery')} accessibilityLabel="Open gallery"><Feather name="image" size={18} color="#FFFFFF" /></TouchableOpacity>
           </View>
         ) : null}
-        <View style={[styles.inputWrapper, isFocused && styles.inputWrapperFocused]}>
+        <View
+          style={[styles.inputWrapper, isFocused && styles.inputWrapperFocused]}
+          onTouchStart={() => inputRef.current?.focus()}
+        >
           <TouchableOpacity style={styles.addIcon} onPress={() => onShowOptionsChange(!showOptions)} accessibilityLabel="Add photo or video">
             <Feather name="plus" size={20} color="#FFFFFF" />
           </TouchableOpacity>
           <TextInput
+            ref={inputRef}
             style={styles.input}
             placeholder="message Aquestanable"
             placeholderTextColor="rgba(255, 255, 255, 0.4)"
             value={text}
             onChangeText={setText}
             onFocus={() => setIsFocused(true)}
-            onBlur={() => setIsFocused(false)}
+            onBlur={() => {
+              setIsFocused(false);
+              if (Keyboard.isVisible()) {
+                requestAnimationFrame(() => inputRef.current?.focus());
+              }
+            }}
             onSubmitEditing={submit}
+            blurOnSubmit={false}
             returnKeyType="send"
           />
           <TouchableOpacity style={styles.sendButton} onPress={submit} accessibilityLabel="Send message">
