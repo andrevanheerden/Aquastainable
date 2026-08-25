@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:4000';
+import { useBackendApi } from './useBackendApi';
 
 export type WaterTestRecord = {
   id: string;
@@ -17,6 +17,7 @@ export type WaterTestRecord = {
 };
 
 export function useWaterTestApi() {
+  const { buildUrl } = useBackendApi();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -30,7 +31,7 @@ export function useWaterTestApi() {
     setLoading(true);
     setError('');
     try {
-      const response = await axios.post<WaterTestRecord>(`${API_BASE_URL}/water-tests`, payload);
+      const response = await axios.post<WaterTestRecord>(buildUrl('/water-tests'), payload);
       return response.data;
     } catch (err) {
       const message = axios.isAxiosError(err) ? err.response?.data?.error || err.message : 'Failed to save water test.';
@@ -39,12 +40,12 @@ export function useWaterTestApi() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [buildUrl]);
 
   const getTankWaterTests = useCallback(async (tankId: string) => {
-    const response = await axios.get<WaterTestRecord[]>(`${API_BASE_URL}/water-tests/tank/${tankId}`);
+    const response = await axios.get<WaterTestRecord[]>(buildUrl(`/water-tests/tank/${tankId}`));
     return response.data;
-  }, []);
+  }, [buildUrl]);
 
   return { saveWaterTest, getTankWaterTests, loading, error };
 }

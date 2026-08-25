@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:4000';
+import { useBackendApi } from './useBackendApi';
 
 export type TankApiPayload = {
   user_id: string;
@@ -42,6 +42,7 @@ export type TankOverviewResponse = {
 };
 
 export function useTankApi() {
+  const { buildUrl } = useBackendApi();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -52,7 +53,7 @@ export function useTankApi() {
     try {
       const response = await axios({
         method,
-        url: `${API_BASE_URL}${path}`,
+        url: buildUrl(path),
         data: payload,
       });
 
@@ -68,7 +69,7 @@ export function useTankApi() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [buildUrl]);
 
   const createTank = useCallback(async (payload: TankApiPayload) => {
     return requestApi<TankRecord>('post', '/tanks', payload);

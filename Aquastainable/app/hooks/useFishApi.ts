@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:4000';
+import { useBackendApi } from './useBackendApi';
 
 export type FishSpecies = {
   id: string;
@@ -70,6 +70,7 @@ export type FishCompatibilityAssessment = {
 };
 
 export function useFishApi() {
+  const { buildUrl } = useBackendApi();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -80,7 +81,7 @@ export function useFishApi() {
     try {
       const response = await axios({
         method,
-        url: `${API_BASE_URL}${path}`,
+        url: buildUrl(path),
         data: payload,
       });
 
@@ -96,7 +97,7 @@ export function useFishApi() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [buildUrl]);
 
   const searchFish = useCallback(
     async (query: string) => {

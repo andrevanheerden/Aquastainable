@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
 import axios, { isAxiosError } from 'axios';
 
-const API_BASE_URL = 'http://localhost:4000';
+import { useBackendApi } from './useBackendApi';
 
 export type PlantSpecies = {
   id: string;
@@ -38,6 +38,7 @@ export type PlantCompatibilityAssessment = {
 };
 
 export function usePlantApi() {
+  const { buildUrl } = useBackendApi();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -45,7 +46,7 @@ export function usePlantApi() {
     setError('');
     setLoading(true);
     try {
-      const response = await axios({ method, url: `${API_BASE_URL}${path}`, data: payload });
+      const response = await axios({ method, url: buildUrl(path), data: payload });
       return response.data as T;
     } catch (err) {
       const message = isAxiosError(err)
@@ -56,7 +57,7 @@ export function usePlantApi() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [buildUrl]);
 
   const searchPlants = useCallback(async (query: string) => {
     const trimmedQuery = query.trim();

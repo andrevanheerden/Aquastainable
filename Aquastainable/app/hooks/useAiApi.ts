@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:4000';
+import { useBackendApi } from './useBackendApi';
 
 export type AiChatMessage = {
   id?: string;
@@ -21,6 +21,7 @@ export type AiChat = {
 };
 
 export function useAiApi() {
+  const { buildUrl } = useBackendApi();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -28,7 +29,7 @@ export function useAiApi() {
     setLoading(true);
     setError('');
     try {
-      const response = await axios({ method, url: `${API_BASE_URL}${path}`, data: method === 'post' ? data : undefined, params: method === 'get' || method === 'delete' ? data : undefined });
+      const response = await axios({ method, url: buildUrl(path), data: method === 'post' ? data : undefined, params: method === 'get' || method === 'delete' ? data : undefined });
       return response.data as T;
     } catch (err) {
       const message = axios.isAxiosError(err) ? err.response?.data?.error || err.message : 'AI request failed.';
@@ -37,7 +38,7 @@ export function useAiApi() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [buildUrl]);
 
   const askAssistant = useCallback(async (payload: { userId: string; chatId?: string; message: string; context: Record<string, unknown>; history: Array<{ role: 'user' | 'assistant'; content: string }>; images?: string[] }) => request<{ answer: string; model: string; chatId: string; imageUrls?: string[] }>('post', '/ai/assistant', payload), [request]);
   const getChats = useCallback((userId: string) => request<AiChat[]>('get', '/ai/assistant/chats', { userId }), [request]);

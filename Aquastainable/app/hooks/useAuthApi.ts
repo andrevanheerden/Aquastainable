@@ -4,7 +4,7 @@ import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'fire
 
 import { auth } from '@/firebase';
 
-const API_BASE_URL = 'http://localhost:4000';
+import { useBackendApi } from './useBackendApi';
 
 type SignUpPayload = {
   email: string;
@@ -19,6 +19,7 @@ type SignInPayload = {
 };
 
 export function useAuthApi() {
+  const { buildUrl } = useBackendApi();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -26,7 +27,7 @@ export function useAuthApi() {
     setError('');
     setLoading(true);
     try {
-      const response = await axios.post<T>(`${API_BASE_URL}${path}`, payload);
+      const response = await axios.post<T>(buildUrl(path), payload);
       return response.data;
     } catch (err) {
       const message = axios.isAxiosError(err)
@@ -39,7 +40,7 @@ export function useAuthApi() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [buildUrl]);
 
   const signUp = useCallback(async (payload: SignUpPayload) => {
     await requestApi('/signup', payload);
