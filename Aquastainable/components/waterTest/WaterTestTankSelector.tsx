@@ -5,7 +5,7 @@ type Props = {
   tanks: Array<{
     id: string;
     name: string;
-    image: number | { uri: string };
+    image?: number | { uri: string };
     testDate?: string;
     waterQuality?: string;
   }>;
@@ -17,20 +17,20 @@ export default function WaterTestTankSelector({ tanks, onSelect }: Props) {
     <View style={styles.container}>
       {tanks.map((tank) => (
         <TouchableOpacity key={tank.id} style={styles.card} onPress={() => onSelect(tank.id)} activeOpacity={0.9}>
-          <Image source={tank.image} style={styles.image} resizeMode="cover" />
+          {tank.image ? <Image source={tank.image} style={styles.image} resizeMode="cover" /> : <View style={styles.imageEmpty} />}
           <View style={styles.cardBody}>
             <Text style={styles.title}>{tank.name}</Text>
             <View style={styles.divider} />
             <View style={styles.infoRow}>
               <Text style={styles.label}>Test date</Text>
               <Text style={[styles.value, styles.compactValue]} numberOfLines={1}>
-                {tank.testDate ?? '—'}
+                {tank.testDate || '~'}
               </Text>
             </View>
             <View style={styles.infoRow}>
               <Text style={styles.label}>Water quality</Text>
               <Text style={[styles.value, styles.compactValue]} numberOfLines={1}>
-                {tank.waterQuality ?? '—'}
+                {tank.waterQuality || '~'}
               </Text>
             </View>
           </View>
@@ -58,6 +58,11 @@ const styles = StyleSheet.create({
   image: {
     width: '100%',
     height: 140,
+  },
+  imageEmpty: {
+    width: '100%',
+    height: 140,
+    backgroundColor: '#20232C',
   },
   cardBody: {
     paddingHorizontal: 16,

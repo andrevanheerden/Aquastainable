@@ -13,12 +13,12 @@ type Conditions = {
 
 type Props = {
   conditions?: Conditions;
+  tankSize?: number;
 };
 
-export default function NeedToKnow({ conditions }: Props) {
+export default function NeedToKnow({ conditions, tankSize }: Props) {
   const { preferredTempC, ph, lastTestedDaysAgo, ammoniaPpm, nitritePpm } = conditions || {} as any;
 
-  const tankSize = 'Min. 10L';
   const waterChangeInterval = 'Weekly';
   const bioload = (parseFloat(ammoniaPpm as any) > 0 || parseFloat(nitritePpm as any) > 0) ? 'Medium' : 'Low';
   const nextWaterChange = lastTestedDaysAgo && lastTestedDaysAgo > 6 ? 'Due' : lastTestedDaysAgo !== undefined ? `${7 - lastTestedDaysAgo}d` : 'N/A';
@@ -47,7 +47,7 @@ export default function NeedToKnow({ conditions }: Props) {
 
         <ConditionTile
           label="Tank Size"
-          value={tankSize}
+          value={tankSize !== undefined ? `${tankSize}L` : undefined}
           tileHeight={200}
           imageSize={80}
           imageSource={require('../../assets/icons/tank.png')}

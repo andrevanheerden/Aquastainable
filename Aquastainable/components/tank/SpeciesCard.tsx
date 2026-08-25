@@ -7,13 +7,13 @@ type Props = {
   index: number;
   favorites: Set<string>;
   toggleFavorite: (id: string) => void;
-  getSpeciesImage: () => string | number;
   cardWidth: number;
   onPress?: () => void;
 };
 
-export default function SpeciesCard({ item, index, favorites, toggleFavorite, getSpeciesImage, cardWidth, onPress }: Props) {
-  const imageSource = getSpeciesImage();
+export default function SpeciesCard({ item, index, favorites, toggleFavorite, cardWidth, onPress }: Props) {
+  const feeding = item.feeding || '';
+  const displayedFeeding = feeding.length > 25 ? `${feeding.slice(0, 22)}...` : feeding;
 
   return (
     <TouchableOpacity
@@ -22,10 +22,7 @@ export default function SpeciesCard({ item, index, favorites, toggleFavorite, ge
       activeOpacity={onPress ? 0.85 : 1}
     >
       <View style={localStyles.speciesCardHeader}>
-        <Image
-          source={typeof imageSource === 'string' ? { uri: imageSource } : imageSource}
-          style={localStyles.speciesAvatarImage}
-        />
+        {item.image ? <Image source={{ uri: item.image }} style={localStyles.speciesAvatarImage} /> : <View style={localStyles.speciesAvatarEmpty} />}
         <View style={localStyles.speciesCardHeaderText}>
           <Text style={localStyles.speciesName}>{item.name}</Text>
           <Text style={localStyles.speciesScientific}>{item.speciesName}</Text>
@@ -43,20 +40,12 @@ export default function SpeciesCard({ item, index, favorites, toggleFavorite, ge
 
       <View style={localStyles.speciesDataGrid}>
         <View style={localStyles.speciesDataRow}>
-          <Text style={localStyles.speciesDataLabel}>Origin</Text>
-          <Text style={localStyles.speciesDataValue}>{item.origin}</Text>
-        </View>
-        <View style={localStyles.speciesDataRow}>
-          <Text style={localStyles.speciesDataLabel}>Lifespan</Text>
-          <Text style={localStyles.speciesDataValue}>{item.lifespan}</Text>
-        </View>
-        <View style={localStyles.speciesDataRow}>
           <Text style={localStyles.speciesDataLabel}>Preferred temp</Text>
           <Text style={localStyles.speciesDataValue}>{item.preferredTempC}</Text>
         </View>
         <View style={localStyles.speciesDataRow}>
           <Text style={localStyles.speciesDataLabel}>Feeding</Text>
-          <Text style={localStyles.speciesDataValue}>{item.feeding}</Text>
+          <Text style={localStyles.speciesDataValue}>{displayedFeeding}</Text>
         </View>
       </View>
     </TouchableOpacity>
@@ -79,6 +68,12 @@ const localStyles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
+  },
+  speciesAvatarEmpty: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#20232C',
   },
   speciesCardHeaderText: {
     flex: 1,

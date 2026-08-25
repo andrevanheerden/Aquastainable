@@ -1,55 +1,63 @@
-import React from 'react';
-import { SafeAreaView, ScrollView, StyleSheet, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, SafeAreaView, ScrollView, StyleSheet, View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
+import { onAuthStateChanged } from 'firebase/auth';
 
 import MainFishDisplay from '@/components/fish&Plants/MainFishDisplay';
 import SpeciesOverview from '@/components/fish&Plants/SpeciesOverview';
 import CareCards from '@/components/fish&Plants/CareCards';
-import { getTankDetail } from '@/app/data/tankDetails';
-
-const MAIN_PLANT_IMAGE = require('../../assets/fishTank/duckweed.jpeg');
-
-const defaultCareItems = [
-  { label: 'Light', value: 'Medium' },
-  { label: 'Water', value: 'Clean, still' },
-  { label: 'Growth', value: 'Moderate' },
-];
+import { auth } from '@/firebase';
+import { SavedPlant, usePlantApi } from '@/app/hooks/usePlantApi';
 
 export default function PlantDetailsScreen() {
   const { speciesId } = useLocalSearchParams<{ speciesId?: string }>();
-  const tankIds = ['1', '2', '3'];
-  const allSpecies = tankIds.flatMap((tankId) => getTankDetail(tankId)?.species ?? []);
-  const mainSpecies = allSpecies.find((item) => item.id === speciesId) ?? allSpecies[0];
-  const careItems = [...defaultCareItems];
+  const { getUserPlants } = usePlantApi();
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [plants, setPlants] = useState<SavedPlant[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  if (mainSpecies) {
-    careItems.push({ label: 'Feed type', value: mainSpecies.feeding });
-  } else {
-    careItems.push({ label: 'Feed type', value: 'Nutrients' });
-  }
+  useEffect(() => onAuthStateChanged(auth, (user) => setCurrentUserId(user?.uid ?? null)), []);
+
+  useEffect(() => {
+    if (!currentUserId) {
+      setPlants([]);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    getUserPlants(currentUserId)
+      .then((savedPlants) => setPlants(Array.isArray(savedPlants) ? savedPlants : []))
+      .catch(() => setPlants([]))
+      .finally(() => setLoading(false));
+  }, [currentUserId, getUserPlants]);
+
+  const mainPlant = plants.find((plant) => plant.id === speciesId || plant.plantId === speciesId);
+  const careItems = mainPlant ? [
+    { label: 'Light', value: mainPlant.light || 'Not available' },
+    { label: 'Growth', value: mainPlant.growthRate || 'Not available' },
+    { label: 'Placement', value: mainPlant.placement || 'Not available' },
+    { label: 'pH range', value: mainPlant.phRange || 'Not available' },
+  ] : [];
 
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={{ marginHorizontal: 0 }}>
           <MainFishDisplay
-            image={MAIN_PLANT_IMAGE}
-            title={mainSpecies?.name ?? 'Duckweed'}
-            subtitle={mainSpecies?.summary}
-            origin={mainSpecies?.origin}
-            lifespan={mainSpecies?.lifespan}
-            preferredTempC={mainSpecies?.preferredTempC}
-            feeding={mainSpecies?.feeding}
+            image={mainPlant?.image ? { uri: mainPlant.image } : undefined}
+            title={mainPlant?.name ?? 'Plant'}
+            preferredTempC={mainPlant?.bestTempC}
+            tankName={mainPlant?.tankName}
+            phLevel={mainPlant?.phRange}
+            feeding={mainPlant?.light ? `Light: ${mainPlant.light}` : undefined}
           />
         </View>
 
         <View style={styles.paddedContent}>
-          <SpeciesOverview
-            title="Species details"
-            description="This section helps you keep the main plant in view. Add a name, track the tank conditions, and monitor growth needs."
-          />
+            <SpeciesOverview title="Species details" description={mainPlant?.description || (loading ? 'Loading plant information.' : 'Plant data is unavailable.')} />
 
-          <CareCards cards={careItems} />
+          {loading ? <ActivityIndicator color="#FFFFFF" /> : null}
+          {careItems.length ? <CareCards cards={careItems} /> : null}
         </View>
       </ScrollView>
     </SafeAreaView>

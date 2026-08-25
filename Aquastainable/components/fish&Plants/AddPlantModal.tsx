@@ -1,8 +1,12 @@
-import React, { useState } from 'react';
-import { Alert, Image, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, Image, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { onAuthStateChanged } from 'firebase/auth';
 import * as ImagePicker from 'expo-image-picker';
 import SwipeCheckButton from './SwipeCheckButton';
 import CompatibilityResultModal from './CompatibilityResultModal';
+import { auth } from '../../firebase';
+import { useTankApi, TankRecord } from '../../app/hooks/useTankApi';
+import { PlantSpecies, usePlantApi } from '../../app/hooks/usePlantApi';
 
 type Props = {
   visible: boolean;
@@ -14,21 +18,59 @@ type Analysis = {
   details: string;
   success: boolean;
   unlock: boolean;
+  suggestedPlantName?: string;
 };
 
-const TANK_OPTIONS = [
-  { id: '1', label: 'Amazonian Reef Tank' },
-  { id: '2', label: 'Nano Betta Sanctuary' },
-  { id: '3', label: 'Treehouse Aquascape' },
-];
-
 export default function AddPlantModal({ visible, onClose }: Props) {
+  const { searchPlants, assessPlantAddition, addPlantToTank } = usePlantApi();
+  const { getUserTanks } = useTankApi();
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [speciesQuery, setSpeciesQuery] = useState('');
+  const [selectedPlant, setSelectedPlant] = useState<PlantSpecies | null>(null);
+  const [plantSuggestions, setPlantSuggestions] = useState<PlantSpecies[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
   const [selectedTank, setSelectedTank] = useState<string | null>(null);
-  const [schoolSize, setSchoolSize] = useState('');
+  const [tanks, setTanks] = useState<TankRecord[]>([]);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [compatibilityVisible, setCompatibilityVisible] = useState(false);
+  const [checkingCompatibility, setCheckingCompatibility] = useState(false);
+
+  useEffect(() => onAuthStateChanged(auth, (user) => setCurrentUserId(user?.uid ?? null)), []);
+
+  useEffect(() => {
+    if (!currentUserId) {
+      setTanks([]);
+      return;
+    }
+    getUserTanks(currentUserId)
+      .then((userTanks) => {
+        const nextTanks = Array.isArray(userTanks) ? userTanks : [];
+        setTanks(nextTanks);
+        setSelectedTank(nextTanks[0]?.tankId ?? null);
+      })
+      .catch(() => setTanks([]));
+  }, [currentUserId, getUserTanks]);
+
+  useEffect(() => {
+    const trimmedQuery = speciesQuery.trim();
+    if (!trimmedQuery || selectedPlant?.name === trimmedQuery) {
+      setPlantSuggestions([]);
+      return;
+    }
+    const searchAsync = async () => {
+      setSearchLoading(true);
+      try {
+        const results = await searchPlants(trimmedQuery);
+        setPlantSuggestions(Array.isArray(results) ? results : []);
+      } catch {
+        setPlantSuggestions([]);
+      } finally {
+        setSearchLoading(false);
+      }
+    };
+    searchAsync();
+  }, [searchPlants, selectedPlant, speciesQuery]);
 
   const handlePickImage = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -38,7 +80,7 @@ export default function AddPlantModal({ visible, onClose }: Props) {
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: 'images',
       quality: 0.7,
     });
 
@@ -47,32 +89,79 @@ export default function AddPlantModal({ visible, onClose }: Props) {
     }
   };
 
-  const handleSwipeComplete = () => {
-    const plantDetail = speciesQuery.trim() || 'this plant';
-    setAnalysis({
-      title: 'AI Compatibility check is positive',
-      details:
-        `${plantDetail} looks like a good fit for the chosen tank. ` +
-        'The selected setup should support this species without conflict, and it will help balance the light and nutrient cycle.',
-      success: true,
-      unlock: true,
-    });
-    setCompatibilityVisible(true);
-  };
-
-  const handleAdd = () => {
-    if (!analysis?.unlock) {
+  const handleSwipeComplete = async () => {
+    if (!selectedPlant || !selectedTank || !currentUserId) {
+      Alert.alert('Missing information', 'Select a plant and tank before requesting a review.');
       return;
     }
 
-    Alert.alert('Mock add', 'This is a mock add flow. No plant was actually saved.');
-    setImageUri(null);
-    setSpeciesQuery('');
-    setSelectedTank(null);
-    setSchoolSize('');
+    try {
+      setCheckingCompatibility(true);
+      const result = await assessPlantAddition({ userId: currentUserId, tankId: selectedTank, plant: selectedPlant });
+      setAnalysis({
+        title: result.title,
+        details: result.explanation,
+        success: result.canAdd,
+        unlock: result.canAdd,
+        suggestedPlantName: result.suggestedPlantName,
+      });
+      setCompatibilityVisible(true);
+    } catch (error) {
+      Alert.alert('Review failed', error instanceof Error ? error.message : 'The plant could not be reviewed.');
+    } finally {
+      setCheckingCompatibility(false);
+    }
+  };
+
+  const handleSelectSuggestedPlant = async () => {
+    if (!analysis?.suggestedPlantName) return;
+    const results = await searchPlants(analysis.suggestedPlantName);
+    const suggestedPlant = results[0];
+    if (!suggestedPlant) {
+      Alert.alert('Suggestion unavailable', 'We could not find that plant in the plant database.');
+      return;
+    }
+    handleSelectPlant(suggestedPlant);
     setAnalysis(null);
     setCompatibilityVisible(false);
-    onClose();
+  };
+
+  const handleSelectPlant = (plant: PlantSpecies) => {
+    setSelectedPlant(plant);
+    setSpeciesQuery(plant.name);
+    setImageUri(plant.image || null);
+    setPlantSuggestions([]);
+  };
+
+  const handleAdd = async () => {
+    if (!analysis?.unlock || !selectedPlant || !selectedTank || !currentUserId) {
+      Alert.alert('Missing information', 'Select a plant, tank, and make sure you are signed in.');
+      return;
+    }
+
+    try {
+      await addPlantToTank({
+        userId: currentUserId,
+        tankId: selectedTank,
+        plantId: selectedPlant.id,
+        name: selectedPlant.name,
+        scientificName: selectedPlant.scientificName,
+        image: selectedPlant.image,
+        imageSourceUrl: selectedPlant.imageSourceUrl,
+        imageLicense: selectedPlant.imageLicense,
+        source: selectedPlant.source,
+      });
+      Alert.alert('Plant added', `${selectedPlant.name} has been added to your tank.`);
+      setImageUri(null);
+      setSpeciesQuery('');
+      setSelectedPlant(null);
+      setPlantSuggestions([]);
+      setAnalysis(null);
+      setCompatibilityVisible(false);
+      onClose();
+    } catch (error) {
+      Alert.alert('Unable to add plant', error instanceof Error ? error.message : 'The plant could not be saved.');
+    }
   };
 
   return (
@@ -108,39 +197,42 @@ export default function AddPlantModal({ visible, onClose }: Props) {
                 placeholderTextColor="#6E7684"
                 style={styles.input}
               />
-              <Text style={styles.helperText}>No plant lookup is active yet; this field is a mock search input.</Text>
+              <Text style={styles.helperText}>Search freshwater aquarium plants and choose a result.</Text>
+              {searchLoading ? <ActivityIndicator color="#5B8CFF" /> : null}
+              {plantSuggestions.length ? (
+                <ScrollView style={styles.suggestionsList} nestedScrollEnabled showsVerticalScrollIndicator>
+                  {plantSuggestions.slice(0, 5).map((plant) => (
+                    <TouchableOpacity key={plant.id} style={styles.suggestion} onPress={() => handleSelectPlant(plant)} activeOpacity={0.8}>
+                      {plant.image ? <Image source={{ uri: plant.image }} style={styles.suggestionImage} /> : null}
+                      <View style={styles.suggestionText}>
+                        <Text style={styles.suggestionName}>{plant.name}</Text>
+                        <Text style={styles.suggestionScientific}>{plant.scientificName}</Text>
+                      </View>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              ) : null}
             </View>
 
             <View style={styles.field}>
               <Text style={styles.fieldLabel}>Tank</Text>
               <View style={styles.tankRow}>
-                {TANK_OPTIONS.map((tank) => (
+                {tanks.map((tank) => (
                   <TouchableOpacity
-                    key={tank.id}
-                    style={[styles.tankOption, selectedTank === tank.id && styles.tankOptionActive]}
-                    onPress={() => setSelectedTank(tank.id)}
+                    key={tank.tankId}
+                    style={[styles.tankOption, selectedTank === tank.tankId && styles.tankOptionActive]}
+                    onPress={() => setSelectedTank(tank.tankId)}
                     activeOpacity={0.8}
                   >
-                    <Text style={[styles.tankLabel, selectedTank === tank.id && styles.tankLabelActive]}>{tank.label}</Text>
+                    <Text style={[styles.tankLabel, selectedTank === tank.tankId && styles.tankLabelActive]}>{tank.tankName}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
             </View>
 
-            <View style={styles.field}>
-              <Text style={styles.fieldLabel}>Group size / growth</Text>
-              <TextInput
-                value={schoolSize}
-                onChangeText={setSchoolSize}
-                placeholder="Example: dense patch or single plant"
-                placeholderTextColor="#6E7684"
-                style={styles.input}
-              />
-            </View>
-
             <View style={styles.divider} />
             <Text style={styles.sectionLabel}>Compatibility</Text>
-            <SwipeCheckButton label="Swipe to check" onSwipe={handleSwipeComplete} />
+            <SwipeCheckButton label={checkingCompatibility ? 'Reviewing plant...' : 'Swipe to check'} onSwipe={handleSwipeComplete} disabled={checkingCompatibility} />
           </ScrollView>
         </View>
         <CompatibilityResultModal
@@ -149,6 +241,7 @@ export default function AddPlantModal({ visible, onClose }: Props) {
           typeLabel="plant"
           onClose={() => setCompatibilityVisible(false)}
           onSwipeToAdd={handleAdd}
+          onSelectSuggestedPlant={handleSelectSuggestedPlant}
         />
       </View>
     </Modal>
@@ -250,6 +343,38 @@ const styles = StyleSheet.create({
     color: '#7B869E',
     fontSize: 12,
     lineHeight: 16,
+  },
+  suggestion: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 10,
+    marginTop: 8,
+    borderRadius: 14,
+    backgroundColor: '#1B1D26',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  suggestionsList: {
+    maxHeight: 260,
+  },
+  suggestionImage: {
+    width: 46,
+    height: 46,
+    borderRadius: 10,
+    marginRight: 10,
+  },
+  suggestionText: {
+    flex: 1,
+  },
+  suggestionName: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  suggestionScientific: {
+    color: '#8F97A6',
+    fontSize: 12,
+    marginTop: 3,
   },
   tankRow: {
     flexDirection: 'row',

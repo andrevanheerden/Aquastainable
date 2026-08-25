@@ -57,3 +57,5 @@ export function useAuthApi() {
 
   return { loading, error, clearError, signUp, signIn };
 }
+
+export default useAuthApi;

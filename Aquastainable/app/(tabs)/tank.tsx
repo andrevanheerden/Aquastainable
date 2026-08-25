@@ -1,9 +1,12 @@
 // app/(tabs)/tank.tsx
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  Animated,
   Dimensions,
   FlatList,
   Image,
+  Alert,
+  Modal,
   NativeScrollEvent,
   NativeSyntheticEvent,
   SafeAreaView,
@@ -12,10 +15,12 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
+  TextInput,
   View,
 } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { onAuthStateChanged } from 'firebase/auth';
+import * as ImagePicker from 'expo-image-picker';
 
 import HeaderRow from '@/components/tank/HeaderRow';
 import OverviewSection from '@/components/tank/OverviewSection';
@@ -23,8 +28,11 @@ import NeedToKnow from '@/components/tank/NeedToKnow';
 import FishPlants from '@/components/tank/FishPlants';
 import WaterTestCard from '@/components/tank/WaterTestCard';
 import Colors from '../colors';
-import { getTankDetail, Species, TankDetail } from '../data/tankDetails';
+import { Species, TankDetail } from '../data/tankDetails';
 import { useTankApi } from '../hooks/useTankApi';
+import { useFishApi } from '../hooks/useFishApi';
+import { usePlantApi } from '../hooks/usePlantApi';
+import useWaterTestApi, { WaterTestRecord } from '../hooks/useWaterTestApi';
 import { auth } from '@/firebase';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -35,20 +43,45 @@ const TILE_GAP = 16;
 const TILE_WIDTH = (SCREEN_WIDTH - 40 - TILE_GAP) / 2;
 const TILE_HEIGHT = 250;
 
-const TANK_IMAGES: Record<string, any> = {
-  '1': require('../../assets/fishTank/FishTankForest.jpeg'),
-  '2': require('../../assets/fishTank/FishTankLiveingRoom.jpeg'),
-  '3': require('../../assets/fishTank/FishTankTree.jpeg'),
-};
+function HoldActionButton({ style, onHold, disabled, fillColor, text }: { style: object; onHold: () => void; disabled: boolean; fillColor: string; text: string }) {
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const progress = useRef(new Animated.Value(0)).current;
 
-const SPECIES_IMAGES: Record<string, string | number> = {
-  f1: require('../../assets/fishTank/guppy.jpg'),
-  f2: require('../../assets/fishTank/goldFish.jpg'),
-  f3: require('../../assets/fishTank/duckweed.jpeg'),
-};
+  const start = () => {
+    if (disabled) return;
+    progress.setValue(0);
+    Animated.timing(progress, { toValue: 1, duration: 500, useNativeDriver: false }).start();
+    timer.current = setTimeout(onHold, 500);
+  };
 
-function getSpeciesImage(speciesId: string, index: number) {
-  return SPECIES_IMAGES[speciesId] ?? Object.values(SPECIES_IMAGES)[index % Object.keys(SPECIES_IMAGES).length];
+  const cancel = () => {
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = null;
+    Animated.timing(progress, { toValue: 0, duration: 100, useNativeDriver: false }).start();
+  };
+
+  return (
+    <TouchableOpacity style={[style, disabled && styles.disabledButton]} onPressIn={start} onPressOut={cancel} onPress={cancel} disabled={disabled} activeOpacity={0.8}>
+      <Animated.View pointerEvents="none" style={[styles.holdActionFill, { backgroundColor: fillColor, transform: [{ scaleX: progress }] }]} />
+      <Text style={styles.saveEditText}>{text}</Text>
+    </TouchableOpacity>
+  );
+}
+
+function mapApiSpecies(item: any, type: Species['type']): Species {
+  return {
+    id: type === 'fish' ? item.fishId || item.id : item.plantId || item.id,
+    type,
+    image: item.image || item.imageUrl || '',
+    name: item.name || item.FBname || 'Unnamed species',
+    speciesName: item.scientificName || item.speciesName || 'Unknown species',
+    origin: item.origin || 'Unknown',
+    lifespan: item.lifespan || 'Unknown',
+    preferredTempC: item.preferredTempC || item.bestTempC || item.tempC || 'Unknown',
+    feeding: item.feeding || item.feedType || 'Unknown',
+    schoolSize: item.schoolSize || 'Unknown',
+    summary: item.summary || item.description || 'No species description available.',
+  };
 }
 
 // ConditionTile and SpeciesCard moved to components/tank/
@@ -56,12 +89,18 @@ function getSpeciesImage(speciesId: string, index: number) {
 export default function TankInfoScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const { getTankById } = useTankApi();
+  const { getTankById, getTankOverview, updateTank, deleteTank } = useTankApi();
+  const { getTankFish } = useFishApi();
+  const { getUserPlants } = usePlantApi();
+  const { getTankWaterTests } = useWaterTestApi();
   
   const [tank, setTank] = useState<TankDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [activeIndex, setActiveIndex] = useState(0);
+  const [editVisible, setEditVisible] = useState(false);
+  const [editForm, setEditForm] = useState({ tankName: '', tankSize: '', tankImg: '' });
+  const [savingEdit, setSavingEdit] = useState(false);
   const speciesListRef = useRef<FlatList<Species>>(null);
 
   // Get current user
@@ -72,9 +111,8 @@ export default function TankInfoScreen() {
     return () => unsubscribe();
   }, []);
 
-  // Fetch tank data from API or mock data
-  useEffect(() => {
-    const loadTank = async () => {
+  // Fetch tank data from the API.
+  const loadTank = useCallback(async () => {
       setLoading(true);
       
       if (!id) {
@@ -82,33 +120,44 @@ export default function TankInfoScreen() {
         return;
       }
 
-      // First, try mock data for IDs 1, 2, 3
-      const mockTank = getTankDetail(id);
-      if (mockTank) {
-        setTank(mockTank);
-        setLoading(false);
-        return;
-      }
-
-      // If not mock data, try to fetch from API
       if (currentUserId) {
         try {
-          const apiTank = await getTankById(currentUserId, id);
+          const [apiTank, tankFish, userPlants, waterTests] = await Promise.all([
+            getTankById(currentUserId, id),
+            getTankFish(id).catch(() => []),
+            getUserPlants(currentUserId).catch(() => []),
+            getTankWaterTests(id).catch(() => []),
+          ]);
           if (apiTank) {
+              const latestTest = [...waterTests].sort((left, right) => new Date(right.testedAt).getTime() - new Date(left.testedAt).getTime())[0] as WaterTestRecord | undefined;
+              const species = [
+                ...tankFish.map((fish) => mapApiSpecies(fish, 'fish')),
+                ...userPlants.filter((plant) => plant.tankId === id).map((plant) => mapApiSpecies(plant, 'plant')),
+              ];
+              let overview = apiTank.overview || '';
+              try {
+                const overviewResult = await getTankOverview(currentUserId, id);
+                overview = overviewResult.overview || overview;
+              } catch (overviewError) {
+                console.error('Error generating tank overview:', overviewError);
+              }
+
             // Convert API tank format to TankDetail format
             const convertedTank: TankDetail = {
               tankId: apiTank.tankId || apiTank.id,
               tankName: apiTank.tankName,
-              overviewSummary: apiTank.overview || '',
+              tankSize: apiTank.tankSize,
+              tankImg: apiTank.tankImg,
+                overviewSummary: overview,
               conditions: {
-                preferredTempC: '',
-                waterQuality: 'Good',
-                lastTestedDaysAgo: 7,
-                ph: '',
-                ammoniaPpm: '',
-                nitritePpm: '',
+                preferredTempC: latestTest?.readings?.temperatureC || apiTank.preferredTempC || apiTank.temperatureC || '',
+                waterQuality: (latestTest?.waterQuality || apiTank.waterQuality || 'Good') as TankDetail['conditions']['waterQuality'],
+                lastTestedDaysAgo: latestTest ? Math.max(0, Math.floor((Date.now() - new Date(latestTest.testedAt).getTime()) / 86400000)) : apiTank.lastTestedDaysAgo || 0,
+                ph: latestTest?.readings?.ph || apiTank.ph || '',
+                ammoniaPpm: (latestTest?.readings?.ammoniaPpm ?? apiTank.ammoniaPpm?.toString()) || '',
+                nitritePpm: (latestTest?.readings?.nitritePpm ?? apiTank.nitritePpm?.toString()) || '',
               },
-              species: [],
+              species,
               careTips: [],
             };
             setTank(convertedTank);
@@ -119,10 +168,11 @@ export default function TankInfoScreen() {
       }
       
       setLoading(false);
-    };
+  }, [currentUserId, getTankById, getTankFish, getTankOverview, getTankWaterTests, getUserPlants, id]);
 
+  useFocusEffect(useCallback(() => {
     loadTank();
-  }, [id, currentUserId, getTankById]);
+  }, [loadTank]));
 
   const [favorites, setFavorites] = useState<Set<string>>(
     () => new Set((tank?.species ?? []).filter((s) => s.favorite).map((s) => s.id))
@@ -167,6 +217,60 @@ export default function TankInfoScreen() {
   };
 
   const activeSpecies = tank.species[activeIndex] || tank.species[0];
+  const tankImageSource = tank.tankImg ? { uri: tank.tankImg } : null;
+
+  const openEditModal = () => {
+    setEditForm({ tankName: tank.tankName, tankSize: String(tank.tankSize || ''), tankImg: tank.tankImg || '' });
+    setEditVisible(true);
+  };
+
+  const pickTankImage = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      quality: 0.8,
+      base64: true,
+    });
+    if (!result.canceled && result.assets?.[0]) {
+      const asset = result.assets[0];
+      setEditForm((current) => ({ ...current, tankImg: asset.base64 ? `data:image/jpeg;base64,${asset.base64}` : asset.uri }));
+    }
+  };
+
+  const saveTankEdits = async () => {
+    if (!currentUserId || !tank) return;
+    const tankName = editForm.tankName.trim();
+    const tankSize = Number(editForm.tankSize);
+    if (!tankName || !Number.isFinite(tankSize) || tankSize <= 0) {
+      Alert.alert('Missing details', 'Enter a tank name and a size greater than zero.');
+      return;
+    }
+
+    setSavingEdit(true);
+    try {
+      const updatedTank = await updateTank(currentUserId, tank.tankId, { tankName, tankSize, tankImg: editForm.tankImg });
+      setTank((current) => current ? { ...current, tankName: updatedTank.tankName, tankSize: updatedTank.tankSize, tankImg: updatedTank.tankImg } : current);
+      setEditVisible(false);
+    } catch (error) {
+      Alert.alert('Tank update failed', error instanceof Error ? error.message : 'Please try again.');
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  const removeTank = async () => {
+    if (!currentUserId || !tank || savingEdit) return;
+    setSavingEdit(true);
+    try {
+      await deleteTank(currentUserId, tank.tankId);
+      setEditVisible(false);
+      router.back();
+    } catch (error) {
+      Alert.alert('Tank deletion failed', error instanceof Error ? error.message : 'Please try again.');
+    } finally {
+      setSavingEdit(false);
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -174,7 +278,7 @@ export default function TankInfoScreen() {
       <SafeAreaView style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           
-          <HeaderRow onBack={() => router.back()} onMenu={() => {}} />
+          <HeaderRow onBack={() => router.back()} onMenu={openEditModal} />
 
           {/* Title + Subtitle */}
           <Text style={styles.tankName}>{tank.tankName}</Text>
@@ -192,13 +296,7 @@ export default function TankInfoScreen() {
                       index !== 0 && styles.heroSmallThumbSpacing,
                     ]}
                   >
-                    <Image
-                      source={typeof getSpeciesImage(item.id, index) === 'string'
-                        ? { uri: getSpeciesImage(item.id, index) as string }
-                        : getSpeciesImage(item.id, index)}
-                      style={styles.heroSmallThumbImage}
-                      resizeMode="cover"
-                    />
+                    {item.image ? <Image source={{ uri: item.image }} style={styles.heroSmallThumbImage} resizeMode="cover" /> : null}
                   </View>
                 ))}
               </View>
@@ -206,27 +304,19 @@ export default function TankInfoScreen() {
 
             <View style={styles.heroPreviewContainer}>
               <View style={styles.heroPreviewBackground}>
-                <Image
-                  source={TANK_IMAGES[tank.tankId] ?? TANK_IMAGES['1']}
-                  style={styles.heroPreviewBackgroundImage}
-                  blurRadius={24}
-                />
+                {tankImageSource ? <Image source={tankImageSource} style={styles.heroPreviewBackgroundImage} blurRadius={24} /> : null}
                 <View style={styles.heroPreviewOverlay} />
               </View>
               <View style={styles.heroCircleContainer}>
                 <View style={styles.heroCircleGlow} />
-                <Image
-                  source={TANK_IMAGES[tank.tankId] ?? TANK_IMAGES['1']}
-                  style={styles.heroCircleImage}
-                  resizeMode="cover"
-                />
+                {tankImageSource ? <Image source={tankImageSource} style={styles.heroCircleImage} resizeMode="cover" /> : null}
               </View>
             </View>
           </View>
 
           <OverviewSection overview={tank.overviewSummary} />
 
-          <NeedToKnow conditions={tank.conditions} />
+          <NeedToKnow conditions={tank.conditions} tankSize={tank.tankSize} />
 
           <WaterTestCard
             conditions={tank.conditions}
@@ -236,7 +326,6 @@ export default function TankInfoScreen() {
           <FishPlants
             species={tank.species}
             speciesListRef={speciesListRef}
-            getSpeciesImage={getSpeciesImage}
             favorites={favorites}
             toggleFavorite={toggleFavorite}
             cardWidth={CARD_WIDTH}
@@ -263,6 +352,34 @@ export default function TankInfoScreen() {
 
         </ScrollView>
       </SafeAreaView>
+      <Modal visible={editVisible} transparent animationType="fade" onRequestClose={() => setEditVisible(false)}>
+        <View style={styles.editBackdrop}>
+          <View style={styles.editCard}>
+            <View style={styles.editHeader}>
+              <View>
+                <Text style={styles.editEyebrow}>TANK DETAILS</Text>
+                <Text style={styles.editTitle}>Edit tank</Text>
+              </View>
+              <TouchableOpacity style={styles.editClose} onPress={() => setEditVisible(false)} accessibilityLabel="Close edit tank">
+                <Text style={styles.editCloseText}>X</Text>
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity style={styles.editImageBox} onPress={pickTankImage} activeOpacity={0.8}>
+              {editForm.tankImg ? <Image source={{ uri: editForm.tankImg }} style={styles.editImage} resizeMode="cover" /> : <Text style={styles.editImageText}>Add tank image</Text>}
+              <View style={styles.editImageBadge}><Text style={styles.editImageBadgeText}>Change</Text></View>
+            </TouchableOpacity>
+
+            <Text style={styles.editLabel}>Tank name</Text>
+            <TextInput value={editForm.tankName} onChangeText={(value) => setEditForm((current) => ({ ...current, tankName: value }))} placeholder="Tank name" placeholderTextColor="#6E7684" style={styles.editInput} />
+            <Text style={styles.editLabel}>Tank size (litres)</Text>
+            <TextInput value={editForm.tankSize} onChangeText={(value) => setEditForm((current) => ({ ...current, tankSize: value }))} placeholder="20" placeholderTextColor="#6E7684" keyboardType="numeric" style={styles.editInput} />
+
+            <HoldActionButton style={styles.saveEditButton} onHold={saveTankEdits} disabled={savingEdit} fillColor="#2E8CA6" text={savingEdit ? 'Saving...' : 'Hold to save changes'} />
+            <HoldActionButton style={styles.deleteTankButton} onHold={removeTank} disabled={savingEdit} fillColor="#B83A45" text="Hold to delete tank" />
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -412,6 +529,120 @@ const styles = StyleSheet.create({
   dotActive: {
     backgroundColor: '#FFFFFF',
     width: 16,
+  },
+
+  editBackdrop: {
+    flex: 1,
+    justifyContent: 'center',
+    padding: 18,
+    backgroundColor: 'rgba(7,12,21,0.78)',
+  },
+  editCard: {
+    maxHeight: '90%',
+    padding: 22,
+    borderRadius: 24,
+    backgroundColor: '#16151A',
+    borderWidth: 1,
+    borderColor: 'rgba(168,196,203,0.18)',
+  },
+  editHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 18,
+  },
+  editEyebrow: {
+    color: '#6C98A0',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1.5,
+    marginBottom: 5,
+  },
+  editTitle: {
+    color: '#FFFFFF',
+    fontSize: 24,
+    fontWeight: '800',
+  },
+  editClose: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+  editCloseText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  editImageBox: {
+    height: 150,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 18,
+    overflow: 'hidden',
+    backgroundColor: '#1B1D26',
+  },
+  editImage: {
+    width: '100%',
+    height: '100%',
+  },
+  editImageText: {
+    color: '#A8C4CB',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  editImageBadge: {
+    position: 'absolute',
+    right: 10,
+    bottom: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+    backgroundColor: 'rgba(0,0,0,0.65)',
+  },
+  editImageBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  editLabel: {
+    color: '#A8C4CB',
+    fontSize: 12,
+    fontWeight: '700',
+    marginBottom: 7,
+  },
+  editInput: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginBottom: 14,
+    borderRadius: 14,
+    backgroundColor: '#1B1D26',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  saveEditButton: {
+    alignItems: 'center',
+    paddingVertical: 14,
+    marginTop: 4,
+    borderRadius: 15,
+    backgroundColor: '#1B5667',
+  },
+  deleteTankButton: {
+    alignItems: 'center',
+    paddingVertical: 14,
+    marginTop: 4,
+    borderRadius: 15,
+    backgroundColor: '#6F2028',
+  },
+  saveEditText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '800',
   },
 
   // Action Button removed

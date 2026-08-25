@@ -1,33 +1,55 @@
-import React, { useState } from 'react';
-import { FlatList, Image, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import React, { useCallback, useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, FlatList, Image, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { onAuthStateChanged } from 'firebase/auth';
 
-import { getTankDetail, Species } from '@/app/data/tankDetails';
-import AddNewFishCard from '@/components/fish&Plants/AddNewFishCard';
 import AddNewPlantCard from '@/components/fish&Plants/AddNewPlantCard';
 import AddPlantModal from '@/components/fish&Plants/AddPlantModal';
+import HoldActionButton from '@/components/fish&Plants/HoldActionButton';
+import { auth } from '@/firebase';
+import { SavedPlant, usePlantApi } from '@/app/hooks/usePlantApi';
 
-const SPECIES_IMAGES: Record<string, string | number> = {
-  f3: require('../../assets/fishTank/duckweed.jpeg'),
-  f5: require('../../assets/fishTank/duckweed.jpeg'),
-  f7: require('../../assets/fishTank/duckweed.jpeg'),
-};
-
-type SpeciesCardItem = Species & { tankName: string };
+type SpeciesCardItem = SavedPlant;
 
 export default function PlantSpeciesScreen() {
   const router = useRouter();
+  const { getUserPlants, deletePlant, loading, error } = usePlantApi();
   const [addPlantVisible, setAddPlantVisible] = useState(false);
-  const tankIds = ['1', '2', '3'];
-  const species: SpeciesCardItem[] = tankIds.flatMap((tankId) => {
-    const tankDetail = getTankDetail(tankId);
-    return (tankDetail?.species ?? [])
-      .filter((item) => item.type === 'plant')
-      .map((item) => ({ ...item, tankName: tankDetail?.tankName ?? 'Unknown Tank' }));
-  });
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [species, setSpecies] = useState<SpeciesCardItem[]>([]);
+  const [actionLoading, setActionLoading] = useState(false);
+
+  useEffect(() => onAuthStateChanged(auth, (user) => setCurrentUserId(user?.uid ?? null)), []);
+
+  const loadPlants = useCallback(() => {
+    if (!currentUserId) {
+      setSpecies([]);
+      return;
+    }
+    getUserPlants(currentUserId)
+      .then((plants) => setSpecies(Array.isArray(plants) ? plants : []))
+      .catch(() => setSpecies([]));
+  }, [currentUserId, getUserPlants]);
+
+  useFocusEffect(useCallback(() => {
+    loadPlants();
+  }, [loadPlants]));
 
   const handlePress = (item: SpeciesCardItem) => {
     router.push({ pathname: '/(tabs)/plantDetails', params: { speciesId: item.id } });
+  };
+
+  const removePlant = async (item: SpeciesCardItem) => {
+    if (actionLoading || !currentUserId) return;
+    setActionLoading(true);
+    try {
+      await deletePlant(currentUserId, item.tankId, item.id);
+      setSpecies((current) => current.filter((plant) => plant.id !== item.id || plant.tankId !== item.tankId));
+    } catch (deleteError) {
+      Alert.alert('Plant deletion failed', deleteError instanceof Error ? deleteError.message : 'Please try again.');
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   return (
@@ -38,7 +60,7 @@ export default function PlantSpeciesScreen() {
       </View>
 
       <FlatList
-        data={[...species, { id: 'add-plant-card', type: 'plant', name: '', speciesName: '', origin: '', lifespan: '', preferredTempC: '', feeding: '', schoolSize: '', summary: '', tankName: '' } as SpeciesCardItem]}
+        data={[...species, { id: 'add-plant-card' } as SpeciesCardItem]}
         keyExtractor={(item) => item.id}
         numColumns={2}
         columnWrapperStyle={styles.row}
@@ -48,26 +70,34 @@ export default function PlantSpeciesScreen() {
             return <AddNewPlantCard onPress={() => setAddPlantVisible(true)} />;
           }
 
-          const imageSource = SPECIES_IMAGES[item.id] ?? require('../../assets/fishTank/duckweed.jpeg');
+          const imageSource = item.image ? { uri: item.image } : undefined;
           return (
-            <TouchableOpacity style={styles.card} onPress={() => handlePress(item)} activeOpacity={0.9}>
-              <Image source={imageSource} style={styles.image} resizeMode="cover" />
+            <View style={styles.card}>
+              <TouchableOpacity onPress={() => handlePress(item)} activeOpacity={0.9}>
+              {imageSource ? <Image source={imageSource} style={styles.image} resizeMode="cover" /> : <View style={styles.imageEmpty} />}
               <View style={styles.cardBody}>
                 <Text style={styles.name}>{item.name}</Text>
-                <Text style={styles.scientific}>{item.speciesName}</Text>
+                <Text style={styles.scientific}>{item.scientificName}</Text>
                 <View style={styles.divider} />
                 <View style={styles.infoRow}>
                   <Text style={styles.label}>Tank</Text>
                   <Text style={[styles.value, styles.compactValue]} numberOfLines={1}>
-                    {item.tankName.length > 10 ? `${item.tankName.slice(0, 10)}...` : item.tankName}
+                    {(item.tankName || 'Unnamed tank').length > 10 ? `${(item.tankName || 'Unnamed tank').slice(0, 10)}...` : item.tankName || 'Unnamed tank'}
                   </Text>
                 </View>
               </View>
-            </TouchableOpacity>
+              </TouchableOpacity>
+              <View style={styles.actionRow}>
+                <HoldActionButton label="Hold to delete plant" onHold={() => { void removePlant(item); }} fillColor="#B83A45" style={styles.deleteAction} />
+              </View>
+            </View>
           );
         }}
       />
-      <AddPlantModal visible={addPlantVisible} onClose={() => setAddPlantVisible(false)} />
+      {loading ? <ActivityIndicator color="#FFFFFF" style={styles.loading} /> : null}
+      {!loading && !error && species.length === 0 ? <Text style={styles.emptyState}>No plants have been added to your tanks yet.</Text> : null}
+      {error ? <Text style={styles.emptyState}>Unable to load your plants right now.</Text> : null}
+      <AddPlantModal visible={addPlantVisible} onClose={() => { setAddPlantVisible(false); loadPlants(); }} />
     </SafeAreaView>
   );
 }
@@ -115,6 +145,10 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 150,
   },
+  imageEmpty: {
+    height: 150,
+    backgroundColor: '#20232C',
+  },
   cardBody: {
     paddingHorizontal: 16,
     paddingVertical: 14,
@@ -155,4 +189,15 @@ const styles = StyleSheet.create({
     maxWidth: 90,
     textAlign: 'right',
   },
+  loading: {
+    marginTop: 16,
+  },
+  emptyState: {
+    color: '#8F97A6',
+    textAlign: 'center',
+    marginHorizontal: 20,
+    marginTop: 20,
+  },
+  actionRow: { padding: 10 },
+  deleteAction: { backgroundColor: '#6F2028' },
 });

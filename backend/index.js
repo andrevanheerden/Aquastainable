@@ -10,13 +10,23 @@ const { getFirestore, FieldValue } = require('firebase-admin/firestore');
 
 dotenv.config();
 
+const createFishRouter = require('./fish/routes');
+const createPlantRouter = require('./plant/routes');
+const createAiRouter = require('./ai/routes');
+
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: '20mb' }));
 app.use(express.urlencoded({ extended: true, limit: '20mb' }));
 
 if (process.env.CLOUDINARY_URL) {
-  cloudinary.config({ secure: true, cloudinary_url: process.env.CLOUDINARY_URL });
+  const cloudinaryUrl = new URL(process.env.CLOUDINARY_URL);
+  cloudinary.config({
+    cloud_name: cloudinaryUrl.hostname,
+    api_key: decodeURIComponent(cloudinaryUrl.username),
+    api_secret: decodeURIComponent(cloudinaryUrl.password),
+    secure: true,
+  });
 }
 
 const { FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY, FIREBASE_API_KEY } = process.env;
@@ -35,6 +45,103 @@ if (FIREBASE_PROJECT_ID && FIREBASE_CLIENT_EMAIL && FIREBASE_PRIVATE_KEY && FIRE
 
 const db = FIREBASE_PROJECT_ID && FIREBASE_CLIENT_EMAIL && FIREBASE_PRIVATE_KEY && FIREBASE_API_KEY ? getFirestore() : null;
 const auth = FIREBASE_PROJECT_ID && FIREBASE_CLIENT_EMAIL && FIREBASE_PRIVATE_KEY && FIREBASE_API_KEY ? getAuth() : null;
+
+app.use('/fish', createFishRouter({ db }));
+app.use('/plants', createPlantRouter({ db }));
+app.use('/ai', createAiRouter({ db }));
+
+app.post('/water-tests', async (req, res) => {
+  try {
+    const { userId, tankId, readings = {}, image, testedAt } = req.body || {};
+    if (!userId || !tankId || !testedAt) {
+      return res.status(400).json({ error: 'userId, tankId, and testedAt are required.' });
+    }
+    if (!readings || !String(readings.ph || '').trim() || !String(readings.temperatureC || '').trim()) {
+      return res.status(400).json({ error: 'pH and water temperature are required.' });
+    }
+    if (!db) {
+      return res.status(503).json({ error: 'Database is not configured.' });
+    }
+
+    const normalizedReadings = Object.fromEntries(
+      Object.entries(readings)
+        .filter(([, value]) => value !== null && value !== undefined && String(value).trim() !== '')
+        .map(([key, value]) => [key, String(value).trim()]),
+    );
+
+    const tankRef = db.collection('tanks').doc(String(tankId));
+    const tankDoc = await tankRef.get();
+    if (!tankDoc.exists || tankDoc.data().user_id !== userId) {
+      return res.status(403).json({ error: 'Tank does not belong to this user.' });
+    }
+
+    const fishSnapshot = await tankRef.collection('fish').get();
+    const fish = fishSnapshot.docs.map((doc) => {
+      const data = doc.data();
+      return { name: data.name || data.scientificName || 'Unknown fish', schoolSize: data.schoolSize || '~' };
+    });
+    let imageUrl = '';
+    let imageUploadSkipped = false;
+    if (image) {
+      if (!process.env.CLOUDINARY_URL) {
+        imageUploadSkipped = true;
+      } else {
+        try {
+          const uploaded = await cloudinary.uploader.upload(image, {
+            folder: 'aquastainable/water-tests',
+            resource_type: 'image',
+          });
+          imageUrl = uploaded.secure_url || uploaded.url || '';
+          imageUploadSkipped = !imageUrl;
+        } catch (error) {
+          console.error('Water-test image upload error:', error);
+          imageUploadSkipped = true;
+        }
+      }
+    }
+
+    const tank = tankDoc.data();
+    let review = { waterQuality: '~', summary: 'Water test saved. Review the readings and monitor the tank.', nextWaterChange: '~', model: '' };
+    let aiReviewSkipped = false;
+    try {
+      review = await require('./ai/service').reviewWaterTest({
+        tank: { tankName: tank.tankName, tankSize: tank.tankSize, waterType: tank.waterType },
+        fish,
+        readings: normalizedReadings,
+        testedAt,
+      });
+    } catch (error) {
+      console.error('Water-test AI review error:', error);
+      aiReviewSkipped = true;
+    }
+    const waterTest = {
+      tankId: String(tankId),
+      testedAt,
+      readings: normalizedReadings,
+      imageUrl,
+      waterQuality: review.waterQuality || '~',
+      summary: review.summary || '~',
+      nextWaterChange: review.nextWaterChange || '~',
+      aiModel: review.model || '',
+      createdAt: new Date().toISOString(),
+    };
+    const testRef = await tankRef.collection('waterTests').add(waterTest);
+    return res.status(201).json({ id: testRef.id, ...waterTest, imageUploadSkipped, aiReviewSkipped });
+  } catch (error) {
+    console.error('Water test save error:', error);
+    return res.status(502).json({ error: error.message || 'Failed to save water test.' });
+  }
+});
+
+app.get('/water-tests/tank/:tankId', async (req, res) => {
+  try {
+    if (!db) return res.status(503).json({ error: 'Database is not configured.' });
+    const snapshot = await db.collection('tanks').doc(req.params.tankId).collection('waterTests').get();
+    return res.status(200).json(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
+  } catch (error) {
+    return res.status(500).json({ error: error.message || 'Failed to load water tests.' });
+  }
+});
 
 async function uploadTankImageToCloudinary(tankImg) {
   if (!tankImg) {
@@ -193,6 +300,66 @@ app.post('/tanks', async (req, res) => {
   }
 });
 
+app.patch('/tanks/:userId/:tankId', async (req, res) => {
+  try {
+    if (!db) return res.status(503).json({ error: 'Database is not configured.' });
+
+    const { userId, tankId } = req.params;
+    const tankRef = db.collection('tanks').doc(String(tankId));
+    const tankDoc = await tankRef.get();
+    if (!tankDoc.exists) return res.status(404).json({ error: 'Tank not found.' });
+    if (tankDoc.data().user_id !== userId) return res.status(403).json({ error: 'Tank does not belong to this user.' });
+
+    const updates = {};
+    if (req.body?.tankName !== undefined) {
+      const tankName = String(req.body.tankName).trim();
+      if (!tankName) return res.status(400).json({ error: 'tankName is required.' });
+      updates.tankName = tankName;
+    }
+    if (req.body?.tankSize !== undefined) {
+      const tankSize = Number(req.body.tankSize);
+      if (!Number.isFinite(tankSize) || tankSize <= 0) return res.status(400).json({ error: 'tankSize must be a number greater than 0.' });
+      updates.tankSize = tankSize;
+    }
+    if (req.body?.tankImg !== undefined) {
+      updates.tankImg = await uploadTankImageToCloudinary(String(req.body.tankImg || '').trim());
+    }
+    if (!Object.keys(updates).length) return res.status(400).json({ error: 'No tank changes supplied.' });
+
+    await tankRef.update(updates);
+    return res.status(200).json({ id: tankDoc.id, ...tankDoc.data(), ...updates });
+  } catch (error) {
+    console.error('Tank update error:', error);
+    return res.status(400).json({ error: error.message || 'Failed to update tank.' });
+  }
+});
+
+app.delete('/tanks/:userId/:tankId', async (req, res) => {
+  try {
+    if (!db) return res.status(503).json({ error: 'Database is not configured.' });
+
+    const { userId, tankId } = req.params;
+    let tankRef = db.collection('tanks').doc(String(tankId));
+    let tankDoc = await tankRef.get();
+    if (!tankDoc.exists) {
+      const matchingTanks = await db.collection('tanks')
+        .where('tankId', '==', String(tankId))
+        .get();
+      const matchingTank = matchingTanks.docs.find((doc) => doc.data().user_id === userId);
+      if (!matchingTank) return res.status(404).json({ error: 'Tank not found.' });
+      tankDoc = matchingTank;
+      tankRef = tankDoc.ref;
+    }
+    if (tankDoc.data().user_id !== userId) return res.status(403).json({ error: 'Tank does not belong to this user.' });
+
+    await db.recursiveDelete(tankRef);
+    return res.status(204).send();
+  } catch (error) {
+    console.error('Tank delete error:', error);
+    return res.status(500).json({ error: error.message || 'Failed to delete tank.' });
+  }
+});
+
 app.get('/tanks/:userId', async (req, res) => {
   try {
     const userId = req.params.userId;
@@ -230,190 +397,6 @@ app.get('/tanks/:userId/:tankId', async (req, res) => {
   } catch (error) {
     console.error('Get tank by id error:', error);
     return res.status(500).json({ error: error.message || 'Failed to get tank.' });
-  }
-});
-
-// Fish Species Endpoints
-
-function normalizeFishResult(item, index = 0) {
-  const commonName = item?.name || item?.common_name || item?.commonName || item?.title || `Fish ${index + 1}`;
-  const scientificName = item?.scientific_name || item?.scientificName || item?.scientific_name_full || item?.Species || commonName;
-  const image = item?.image_url || item?.imageUrl || item?.thumbnail?.source || item?.originalimage?.source || item?.image || item?.img || '';
-
-  return {
-    id: item?.id || `${commonName.toLowerCase().replace(/\s+/g, '-')}-${index}`,
-    name: commonName,
-    scientificName,
-    image,
-    schoolSize: item?.schoolSize || item?.school_size || 'User-set',
-    tempC: item?.tempC || item?.temp_celsius || item?.temperature || '',
-    pH: item?.pH || item?.ph || '',
-  };
-}
-
-async function searchFishSpecies(query) {
-  try {
-    const searchTerm = String(query || '').trim();
-    if (!searchTerm) return [];
-
-    const endpoints = [
-      `https://fishbase.se/libs/jquery/autocomplete/ac_species.php?term=${encodeURIComponent(searchTerm)}`,
-      `https://fishbase.se/search.php?search=${encodeURIComponent(searchTerm)}`,
-    ];
-
-    for (const endpoint of endpoints) {
-      try {
-        const response = await axios.get(endpoint, { timeout: 20000 });
-        const rawText = String(response?.data || '').trim();
-        if (!rawText) continue;
-
-        const arrayMatches = [...rawText.matchAll(/\[[\s\S]*?\]/g)];
-        const lastArray = arrayMatches[arrayMatches.length - 1]?.[0];
-
-        let parsedResults = [];
-        if (lastArray) {
-          try {
-            const parsed = JSON.parse(lastArray);
-            if (Array.isArray(parsed)) {
-              parsedResults = parsed;
-            }
-          } catch (error) {
-            parsedResults = [];
-          }
-        }
-
-        if (!Array.isArray(parsedResults) || parsedResults.length === 0) {
-          const htmlNames = [...rawText.matchAll(/(?:value|title|label|alt|data-name)\s*=\s*['"]([^'"]+)['"]/gi)]
-            .map((match) => match[1].replace(/<[^>]+>/g, '').trim())
-            .filter(Boolean)
-            .map((name) => name.replace(/\s+/g, ' '));
-
-          const deduped = [...new Set(htmlNames.filter((name) => name.toLowerCase().includes(searchTerm.toLowerCase())))];
-          if (deduped.length > 0) {
-            parsedResults = deduped;
-          }
-        }
-
-        if (Array.isArray(parsedResults) && parsedResults.length > 0) {
-          const cleanNames = parsedResults
-            .map((entry) => typeof entry === 'string' ? entry : (entry?.label || entry?.name || entry?.value || ''))
-            .map((name) => String(name).replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim())
-            .filter((name) => !!name && name.toLowerCase().includes(searchTerm.toLowerCase()))
-            .filter((name, index, arr) => arr.indexOf(name) === index)
-            .slice(0, 5);
-
-          if (cleanNames.length > 0) {
-            return cleanNames.map((name, index) => ({
-              id: `${name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${index}`,
-              name,
-              scientificName: name,
-              image: '',
-              schoolSize: 'User-set',
-              tempC: '',
-              pH: '',
-            }));
-          }
-        }
-      } catch (endpointError) {
-        // try the next source
-      }
-    }
-
-    return [];
-  } catch (error) {
-    console.error('FishBase search failed:', error.message || error);
-    return [];
-  }
-}
-
-// Search fish species by name (uses Kaggle API)
-app.get('/fish/search', async (req, res) => {
-  try {
-    const { query } = req.query;
-
-    if (!query || query.trim().length === 0) {
-      return res.status(400).json({ error: 'Search query is required.' });
-    }
-
-    const searchTerm = query.toLowerCase().trim();
-    const results = await searchFishSpecies(searchTerm);
-
-    return res.status(200).json(results || []);
-  } catch (error) {
-    console.error('Fish search error:', error);
-    return res.status(500).json({ error: error.message || 'Failed to search fish.' });
-  }
-});
-
-// Add fish species to tank
-app.post('/fish/add', async (req, res) => {
-  try {
-    const { userId, tankId, fishId, name, scientificName, image, schoolSize } = req.body;
-
-    if (!userId || !tankId || !fishId || !schoolSize) {
-      return res.status(400).json({ error: 'userId, tankId, fishId, and schoolSize are required.' });
-    }
-
-    // Verify tank belongs to user
-    const tankDoc = await db.collection('tanks').doc(tankId).get();
-    if (!tankDoc.exists || tankDoc.data().user_id !== userId) {
-      return res.status(403).json({ error: 'Tank does not belong to this user.' });
-    }
-
-    // Add fish species to tank's fish subcollection with user-provided data
-    const fishRecord = {
-      fishId,
-      tankId,
-      name: name || 'Unknown Species',
-      scientificName: scientificName || '',
-      image: image || '',
-      schoolSize,
-      addedAt: new Date(),
-    };
-
-    const docRef = await db.collection('tanks').doc(tankId).collection('fish').add(fishRecord);
-
-    return res.status(201).json({
-      id: docRef.id,
-      ...fishRecord,
-    });
-  } catch (error) {
-    console.error('Add fish error:', error);
-    return res.status(500).json({ error: error.message || 'Failed to add fish.' });
-  }
-});
-
-// Get fish species for a tank
-app.get('/fish/tank/:tankId', async (req, res) => {
-  try {
-    const { tankId } = req.params;
-
-    // Get all fish in tank's fish subcollection
-    const fishSnapshot = await db.collection('tanks').doc(tankId).collection('fish').get();
-
-    const fish = fishSnapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    }));
-
-    return res.status(200).json(fish);
-  } catch (error) {
-    console.error('Get tank fish error:', error);
-    return res.status(500).json({ error: error.message || 'Failed to get fish.' });
-  }
-});
-
-// Remove fish species from tank
-app.delete('/fish/:tankId/:fishDocId', async (req, res) => {
-  try {
-    const { tankId, fishDocId } = req.params;
-
-    await db.collection('tanks').doc(tankId).collection('fish').doc(fishDocId).delete();
-
-    return res.status(200).json({ success: true, message: 'Fish removed from tank.' });
-  } catch (error) {
-    console.error('Remove fish error:', error);
-    return res.status(500).json({ error: error.message || 'Failed to remove fish.' });
   }
 });
 

@@ -1,5 +1,9 @@
 import React, { useRef, useState } from 'react';
-import { Animated, Easing, PanResponder, StyleSheet, Text, View } from 'react-native';
+import { Animated, PanResponder, StyleSheet, View } from 'react-native';
+import { IconSymbol } from '../ui/icon-symbol';
+
+const SWIPE_THUMB_SIZE = 52;
+const SWIPE_PADDING = 4;
 
 type Props = {
   onSwipe: () => void;
@@ -11,44 +15,37 @@ export default function SwipeCheckButton({ onSwipe, label = 'Swipe to check comp
   const pan = useRef(new Animated.Value(0)).current;
   const [containerWidth, setContainerWidth] = useState(0);
   const containerWidthRef = useRef(0);
+  const disabledRef = useRef(disabled);
+  const onSwipeRef = useRef(onSwipe);
+  disabledRef.current = disabled;
+  onSwipeRef.current = onSwipe;
 
   const panResponder = useRef(
     PanResponder.create({
-      onStartShouldSetPanResponder: () => !disabled,
-      onMoveShouldSetPanResponder: (_, gestureState) => !disabled && Math.abs(gestureState.dx) > Math.abs(gestureState.dy),
+      onStartShouldSetPanResponder: () => !disabledRef.current,
+      onMoveShouldSetPanResponder: (_, gestureState) => !disabledRef.current && Math.abs(gestureState.dx) > Math.abs(gestureState.dy),
       onPanResponderMove: (_, gestureState) => {
-        const activeMaxTranslate = Math.max(0, containerWidthRef.current - 48 - 16);
-        const nextValue = Math.max(0, Math.min(gestureState.dx, activeMaxTranslate));
-        pan.setValue(nextValue);
+        const activeMaxTranslate = Math.max(0, containerWidthRef.current - SWIPE_THUMB_SIZE - SWIPE_PADDING * 2);
+        const newValue = Math.max(0, Math.min(gestureState.dx, activeMaxTranslate));
+        pan.setValue(newValue);
       },
       onPanResponderRelease: (_, gestureState) => {
-        const activeMaxTranslate = Math.max(0, containerWidthRef.current - 48 - 16);
+        const activeMaxTranslate = Math.max(0, containerWidthRef.current - SWIPE_THUMB_SIZE - SWIPE_PADDING * 2);
         if (gestureState.dx >= activeMaxTranslate * 0.75) {
-          Animated.timing(pan, {
-            toValue: activeMaxTranslate,
-            duration: 120,
-            easing: Easing.out(Easing.quad),
-            useNativeDriver: true,
-          }).start(() => {
-            onSwipe();
-            Animated.spring(pan, {
-              toValue: 0,
-              friction: 6,
-              useNativeDriver: true,
-            }).start();
+          Animated.timing(pan, { toValue: activeMaxTranslate, duration: 120, useNativeDriver: true }).start(() => {
+            onSwipeRef.current();
+            setTimeout(() => {
+              Animated.spring(pan, { toValue: 0, friction: 6, useNativeDriver: true }).start();
+            }, 600);
           });
         } else {
-          Animated.spring(pan, {
-            toValue: 0,
-            friction: 6,
-            useNativeDriver: true,
-          }).start();
+          Animated.spring(pan, { toValue: 0, friction: 5, useNativeDriver: true }).start();
         }
       },
     })
   ).current;
 
-  const maxTranslate = Math.max(0, containerWidthRef.current - 48 - 16);
+  const maxTranslate = Math.max(0, containerWidth - SWIPE_THUMB_SIZE - SWIPE_PADDING * 2);
   const textOpacity = pan.interpolate({
     inputRange: [0, Math.max(1, maxTranslate * 0.5)],
     outputRange: [1, 0],
@@ -57,57 +54,58 @@ export default function SwipeCheckButton({ onSwipe, label = 'Swipe to check comp
 
   return (
     <View
-      style={styles.track}
+      style={styles.swipeTrack}
+      {...panResponder.panHandlers}
       onLayout={(e) => {
         containerWidthRef.current = e.nativeEvent.layout.width;
         setContainerWidth(e.nativeEvent.layout.width);
       }}
     >
-      <Animated.Text style={[styles.text, { opacity: textOpacity, color: disabled ? '#6E7684' : '#B3B9C9' }]}>{label}</Animated.Text>
+      <Animated.Text style={[styles.swipeText, { opacity: textOpacity, color: disabled ? '#6E7684' : '#FFFFFF' }]}>{label}</Animated.Text>
       <Animated.View
-        {...panResponder.panHandlers}
-        style={[styles.thumb, { transform: [{ translateX: pan }], backgroundColor: disabled ? '#3A4258' : '#5B8CFF' }]}
+        style={[styles.swipeThumb, { transform: [{ translateX: pan }], backgroundColor: disabled ? '#3A4258' : '#3B82F6' }]}
       >
-        <Text style={styles.arrow}>›</Text>
+        <IconSymbol name="chevron.right" size={22} color="#FFFFFF" style={styles.swipeIcon} />
       </Animated.View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  track: {
+  swipeTrack: {
+    height: 60,
     width: '100%',
-    height: 56,
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
     borderRadius: 30,
-    backgroundColor: '#1B1D26',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
     justifyContent: 'center',
-    paddingHorizontal: 12,
+    padding: SWIPE_PADDING,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.18)',
     overflow: 'hidden',
   },
-  text: {
+  swipeText: {
     position: 'absolute',
     alignSelf: 'center',
-    color: '#B3B9C9',
-    fontSize: 14,
-    fontWeight: '600',
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 1.5,
   },
-  thumb: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#5B8CFF',
+  swipeThumb: {
+    width: SWIPE_THUMB_SIZE,
+    height: SWIPE_THUMB_SIZE,
+    borderRadius: SWIPE_THUMB_SIZE / 2,
+    backgroundColor: '#3B82F6',
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 4,
   },
-  arrow: {
-    color: '#FFFFFF',
-    fontSize: 24,
-    lineHeight: 28,
+  swipeIcon: {
+    textAlign: 'center',
+    includeFontPadding: false,
   },
 });

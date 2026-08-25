@@ -15,7 +15,7 @@ export default function CareCards({ cards }: Props) {
     <View style={styles.container}>
       <Text style={styles.sectionTitle}>Species care</Text>
       <View style={styles.grid}>
-        {cards.map((card) => (
+        {cards.map((card, index) => (
           <View key={card.label} style={styles.card}>
             <Text style={styles.cardLabel}>{card.label}</Text>
             <Text style={styles.cardValue}>{card.value}</Text>

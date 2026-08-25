@@ -50,7 +50,7 @@ export default function SignInScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <Image source={heroImage} style={[styles.backgroundImage, keyboardVisible && styles.hiddenBackground]} />
+      <Image source={heroImage} style={[styles.backgroundImage, keyboardVisible && styles.hiddenBackground]} resizeMode="cover" />
 
       <View style={styles.content}>
         <Text style={styles.title}>Welcome back</Text>
@@ -110,8 +110,6 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     width: '100%',
     height: '49%',
-    resizeMode: 'cover',
-    
   },
 
   content: {

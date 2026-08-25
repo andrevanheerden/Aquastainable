@@ -15,7 +15,7 @@ export default function HeaderRow({ onBack, onMenu }: Props) {
       </TouchableOpacity>
 
       <TouchableOpacity onPress={onMenu} style={localStyles.headerButton} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-        <IconSymbol name="ellipsis" size={18} color="#FFFFFF" />
+        <IconSymbol name="pencil" size={18} color="#FFFFFF" />
       </TouchableOpacity>
     </View>
   );
