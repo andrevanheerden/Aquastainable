@@ -319,9 +319,18 @@ Firestore stores users in `users/{userId}` and tanks in `tanks/{tankId}`. A tank
 - When adding a route, update both the relevant frontend hook and this API reference.
 - Run `npm run lint` from `Aquastainable/` after frontend changes.
 
-## Documentation
+## Demo Video
 
-The project presentation is available in [documentation/Aquastainable project pitch.pdf](documentation/Aquastainable%20project%20pitch.pdf).
+[![Demo video](https://img.shields.io/badge/Demo%20video-DDDDDD?style=for-the-badge&logo=globe&logoColor=white)](https://drive.google.com/file/d/1ulU2ngLPYS8JdWL8cYc7myzTX702v3lv/view?usp=sharing)
 
+## Creaters
 
-The frontend was created with [Expo](https://expo.dev) and [create-expo-app](https://www.npmjs.com/package/create-expo-app).
+<a href="https://github.com/andrevanheerden/Yggdrasil/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=andrevanheerden/Yggdrasil" />
+</a>
+
+## Acknowledgments
+
+Thanks for the awesome help in teaching me the skills to develop this project 
+
+- Tsungai Katsuro - tsungai@openwindow.co.za
