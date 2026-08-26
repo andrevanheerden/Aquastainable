@@ -1,7 +1,6 @@
-# Aquastainable
 
 <p align="center">
-  <img src="./Aquastainable/assets/logo/header%20(2).png" alt="Aquastainable" width="420" />
+  <img src="./Aquastainable/assets/mockups/header%20(2).png" alt="Aquastainable" width="420" />
 </p>
 
 <p align="center">A practical aquarium companion for healthier tanks, happier fish, and thriving aquatic plants.</p>
