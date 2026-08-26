@@ -8,7 +8,7 @@
 Aquastainable is a mobile freshwater aquarium-care app. It gives fishkeepers one place to manage tanks, record water tests, track fish and plants, and ask an aquarium-focused AI assistant for guidance.
 
 <p align="center">
-  <img src="./Aquastainable/assets/mockups/quasta.png" alt="Aquastainable tank and fish tracking mockup" width="850" />
+  <img src="./Aquastainable/assets/mockups/mockup1.png" alt="Aquastainable plant detail mockup" width="850" />
 </p>
 
 ## Contents
@@ -46,7 +46,7 @@ Aquastainable is a mobile freshwater aquarium-care app. It gives fishkeepers one
 - Generate and cache an AI-written tank overview from the tank's current records.
 
 <p align="center">
-  <img src="./Aquastainable/assets/mockups/quasta%20(1).png" alt="Aquastainable aquarium dashboard mockup" width="720" />
+  <img src="./Aquastainable/assets/mockups/mockup2%20(2).png" alt="Aquastainable tank overview mockup" width="720" />
 </p>
 
 ### Fish
@@ -62,7 +62,7 @@ Aquastainable is a mobile freshwater aquarium-care app. It gives fishkeepers one
 - Send a fish sickness or problem to the AI assistant with prefilled context and media.
 
 <p align="center">
-  <img src="./Aquastainable/assets/mockups/quasta%20(2).png" alt="Aquastainable fish profile mockup" width="720" />
+  <img src="./Aquastainable/assets/mockups/mockup3%20(2).png" alt="Aquastainable plant species mockup" width="720" />
 </p>
 
 ### Plants
@@ -74,7 +74,7 @@ Aquastainable is a mobile freshwater aquarium-care app. It gives fishkeepers one
 - Remove saved plants from a tank.
 
 <p align="center">
-  <img src="./Aquastainable/assets/mockups/quasta%20(3).png" alt="Aquastainable plant species detail mockup" width="720" />
+  <img src="./Aquastainable/assets/mockups/mockup4%20(2).png" alt="Aquastainable water-test history mockup" width="720" />
 </p>
 
 ### Water Tests
@@ -85,6 +85,10 @@ Aquastainable is a mobile freshwater aquarium-care app. It gives fishkeepers one
 - Receive an AI water-quality classification, summary, and suggested next water change.
 - Browse previous tests in a history carousel.
 - Treat ammonia, nitrite, and chlorine/chloramine as safety-critical conditions in the AI guidance.
+
+<p align="center">
+  <img src="./Aquastainable/assets/mockups/mockup5.png" alt="Aquastainable water-test results mockup" width="720" />
+</p>
 
 ### AI Assistant
 
