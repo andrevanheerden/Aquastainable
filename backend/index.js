@@ -295,9 +295,11 @@ app.post('/tanks', async (req, res) => {
     };
     const tankRef = db.collection('tanks').doc(tankPayload.id);
     await tankRef.set(tankPayload);
+    const savedTank = await tankRef.get();
 
     return res.status(201).json({
-      ...tankPayload,
+      id: savedTank.id,
+      ...savedTank.data(),
       createdAt: new Date().toISOString(),
     });
   } catch (error) {
@@ -333,7 +335,8 @@ app.patch('/tanks/:userId/:tankId', async (req, res) => {
     if (!Object.keys(updates).length) return res.status(400).json({ error: 'No tank changes supplied.' });
 
     await tankRef.update(updates);
-    return res.status(200).json({ id: tankDoc.id, ...tankDoc.data(), ...updates });
+    const savedTank = await tankRef.get();
+    return res.status(200).json({ id: savedTank.id, ...savedTank.data() });
   } catch (error) {
     console.error('Tank update error:', error);
     return res.status(400).json({ error: error.message || 'Failed to update tank.' });
@@ -387,8 +390,19 @@ app.get('/tanks/:userId', async (req, res) => {
 app.get('/tanks/:userId/:tankId', async (req, res) => {
   try {
     const { tankId, userId } = req.params;
-    const tankRef = db.collection('tanks').doc(tankId);
-    const tankDoc = await tankRef.get();
+    let tankRef = db.collection('tanks').doc(tankId);
+    let tankDoc = await tankRef.get();
+
+    if (!tankDoc.exists) {
+      const matchingTanks = await db.collection('tanks')
+        .where('tankId', '==', tankId)
+        .get();
+      const matchingTank = matchingTanks.docs.find((doc) => doc.data().user_id === userId);
+      if (matchingTank) {
+        tankRef = matchingTank.ref;
+        tankDoc = matchingTank;
+      }
+    }
 
     if (!tankDoc.exists) {
       return res.status(404).json({ error: 'Tank not found.' });

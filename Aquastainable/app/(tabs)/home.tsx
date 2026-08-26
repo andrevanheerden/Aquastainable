@@ -36,8 +36,11 @@ const SWIPE_PADDING = 4;
 
 function SwipeButton({ onSwipe }: { onSwipe: () => void }) {
   const pan = useRef(new Animated.Value(0)).current;
+  const onSwipeRef = useRef(onSwipe);
   const [containerWidth, setContainerWidth] = useState(0);
   const containerWidthRef = useRef(0);
+
+  onSwipeRef.current = onSwipe;
 
   const maxTranslate = Math.max(0, containerWidth - SWIPE_THUMB_SIZE - SWIPE_PADDING * 2);
 
@@ -55,7 +58,7 @@ function SwipeButton({ onSwipe }: { onSwipe: () => void }) {
 
         if (gestureState.dx >= activeMaxTranslate * 0.75) {
           Animated.timing(pan, { toValue: activeMaxTranslate, duration: 120, useNativeDriver: true }).start(() => {
-            onSwipe();
+            onSwipeRef.current();
             setTimeout(() => {
               Animated.spring(pan, { toValue: 0, friction: 6, useNativeDriver: true }).start();
             }, 600);
@@ -303,7 +306,7 @@ export default function HomeScreen() {
             </View>
 
             {tanks.length > 0 && (
-              <SwipeButton onSwipe={() => router.push({ pathname: '/(tabs)/tank', params: { id: String(aquarium.tankId || aquarium.id) } })} />
+              <SwipeButton onSwipe={() => router.push({ pathname: '/(tabs)/tank/[id]', params: { id: String(aquarium.tankId || aquarium.id) } })} />
             )}
           </View>
         </SafeAreaView>

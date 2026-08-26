@@ -248,8 +248,8 @@ export default function TankInfoScreen() {
 
     setSavingEdit(true);
     try {
-      const updatedTank = await updateTank(currentUserId, tank.tankId, { tankName, tankSize, tankImg: editForm.tankImg });
-      setTank((current) => current ? { ...current, tankName: updatedTank.tankName, tankSize: updatedTank.tankSize, tankImg: updatedTank.tankImg } : current);
+      await updateTank(currentUserId, tank.tankId, { tankName, tankSize, tankImg: editForm.tankImg });
+      await loadTank();
       setEditVisible(false);
     } catch (error) {
       Alert.alert('Tank update failed', error instanceof Error ? error.message : 'Please try again.');
