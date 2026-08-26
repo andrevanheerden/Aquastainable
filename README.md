@@ -1,12 +1,16 @@
 # Aquastainable
 
 <p align="center">
-  <img src="./Aquastainable/assets/logo/logo-text.png" alt="Aquastainable" width="420" />
+  <img src="./Aquastainable/assets/logo/header%20(2).png" alt="Aquastainable" width="420" />
 </p>
 
 <p align="center">A practical aquarium companion for healthier tanks, happier fish, and thriving aquatic plants.</p>
 
 Aquastainable is a mobile freshwater aquarium-care app. It gives fishkeepers one place to manage tanks, record water tests, track fish and plants, and ask an aquarium-focused AI assistant for guidance.
+
+<p align="center">
+  <img src="./Aquastainable/assets/mockups/quasta.png" alt="Aquastainable tank and fish tracking mockup" width="850" />
+</p>
 
 ## Contents
 
@@ -15,7 +19,7 @@ Aquastainable is a mobile freshwater aquarium-care app. It gives fishkeepers one
 - [Technology Stack](#technology-stack)
 - [Project Structure](#project-structure)
 - [Getting Started](#getting-started)
-- [Environment Variables](#environment-variables)
+- [Entity Relationship Diagram](#entity-relationship-diagram)
 - [API Reference](#api-reference)
 - [How the API and LLM Work](#how-the-api-and-llm-work)
 - [Data Model](#data-model)
@@ -42,6 +46,10 @@ Aquastainable is a mobile freshwater aquarium-care app. It gives fishkeepers one
 - Delete a tank and its nested Firestore records.
 - Generate and cache an AI-written tank overview from the tank's current records.
 
+<p align="center">
+  <img src="./Aquastainable/assets/mockups/quasta%20(1).png" alt="Aquastainable aquarium dashboard mockup" width="720" />
+</p>
+
 ### Fish
 
 - Search the fish catalogue and add fish to a tank.
@@ -54,6 +62,10 @@ Aquastainable is a mobile freshwater aquarium-care app. It gives fishkeepers one
 - Add, edit, list, and delete individual fish records.
 - Send a fish sickness or problem to the AI assistant with prefilled context and media.
 
+<p align="center">
+  <img src="./Aquastainable/assets/mockups/quasta%20(2).png" alt="Aquastainable fish profile mockup" width="720" />
+</p>
+
 ### Plants
 
 - Search the plant catalogue and add plants to a tank.
@@ -61,6 +73,10 @@ Aquastainable is a mobile freshwater aquarium-care app. It gives fishkeepers one
 - View plant care information including light, growth rate, placement, temperature, and pH.
 - Generate missing plant care information with the LLM.
 - Remove saved plants from a tank.
+
+<p align="center">
+  <img src="./Aquastainable/assets/mockups/quasta%20(3).png" alt="Aquastainable plant species detail mockup" width="720" />
+</p>
 
 ### Water Tests
 
@@ -148,7 +164,6 @@ Aquastainable/
 - Expo Go, an Android emulator, an iOS simulator, or a web browser.
 - A Firebase project with Authentication and Firestore enabled.
 - A Firebase web configuration for the frontend.
-- Firebase Admin credentials and a Groq API key for the backend.
 
 ### Run the frontend
 
@@ -167,105 +182,116 @@ npm run web
 npm run lint
 ```
 
-### Run the backend
+The backend is hosted on Render at `https://aquastainable.onrender.com` and does not need to be installed or started locally. The frontend is already configured to use this deployed API.
 
-Open a second terminal from the repository root:
+## Entity Relationship Diagram
 
-```bash
-cd backend
-npm install
-npm start
-```
+The application stores user and aquarium data in Firestore. Aquarium records are nested under their owning tank, while assistant chats are nested under the user.
 
-The backend listens on `http://localhost:4000` by default. The frontend currently uses the deployed API URL in `Aquastainable/app/hooks/useBackendApi.ts`; change `API_BASE_URL` when testing against a local backend or another deployment.
+```mermaid
+erDiagram
+  USER ||--o{ TANK : owns
+  TANK ||--o{ FISH : contains
+  TANK ||--o{ PLANT : contains
+  TANK ||--o{ WATER_TEST : records
+  FISH ||--o{ INDIVIDUAL_FISH : tracks
+  USER ||--o{ CHAT : starts
+  CHAT ||--o{ MESSAGE : contains
 
-## Environment Variables
-
-Create `backend/.env`. Do not commit it.
-
-```env
-PORT=4000
-FIREBASE_PROJECT_ID=your-project-id
-FIREBASE_CLIENT_EMAIL=firebase-adminsdk-...@your-project-id.iam.gserviceaccount.com
-FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
-FIREBASE_API_KEY=your-firebase-web-api-key
-CLOUDINARY_URL=cloudinary://api-key:api-secret@cloud-name
-AI_ENABLED=true
-GROQ_API_KEY=your-groq-api-key
-GROQ_MODEL=openai/gpt-oss-20b
-GROQ_BASE_URL=https://api.groq.com/openai/v1
-GROQ_TIMEOUT_MS=120000
-```
-
-Firebase Admin credentials are required for Firestore-backed routes. Cloudinary is optional; without it, image upload fields are skipped or the original data URL is retained where supported. The Groq settings control the LLM provider, model, endpoint, and timeout.
-
-## API Reference
-
-The API base URL is `https://aquastainable.onrender.com` in the current frontend configuration. All request and response bodies are JSON unless stated otherwise. User-owned routes receive a `userId` or `user_id` and verify tank ownership in Firestore. The current implementation does not yet use an Express bearer-token middleware, so production deployments should add Firebase ID-token verification before exposing user data.
-
-### System and authentication
-
-| Method | Endpoint | Purpose |
-| --- | --- | --- |
-| `GET` | `/health` | Check that the API is running. |
-| `POST` | `/signup` | Create a Firebase user and matching Firestore user record. Body: `email`, `password`, `username`, optional `profileImageUrl`. |
-| `POST` | `/signin` | Sign in through Firebase Identity Toolkit. Body: `email`, `password`. |
-| `GET` | `/ai/health` | Check AI enabled/configured/reachable state and the configured model. |
-
-### Tanks and water tests
-
-| Method | Endpoint | Purpose |
-| --- | --- | --- |
-| `POST` | `/tanks` | Create a tank. Body: `user_id`, `tankName`, `waterType`, `tankSize`, optional `tankImg`, `overview`, `aquaCare`. |
-| `GET` | `/tanks/:userId` | List a user's tanks. |
-| `GET` | `/tanks/:userId/:tankId` | Get one owned tank. |
-| `PATCH` | `/tanks/:userId/:tankId` | Update `tankName`, `tankSize`, and/or `tankImg`. |
-| `DELETE` | `/tanks/:userId/:tankId` | Delete a tank and its nested records. |
-| `POST` | `/water-tests` | Save readings for an owned tank; required fields are `userId`, `tankId`, `testedAt`, `readings.ph`, and `readings.temperatureC`. |
-| `GET` | `/water-tests/tank/:tankId` | List water tests for a tank, newest-first in the client. |
-
-### Fish and plants
-
-| Method | Endpoint | Purpose |
-| --- | --- | --- |
-| `GET` | `/fish/search?query=...` | Search fish catalogue data. |
-| `POST` | `/fish/assess-add` | Use the LLM to assess fish compatibility and school size across the user's tanks. |
-| `POST` | `/fish/add` | Assess and add a fish to a tank. |
-| `POST` | `/fish/add-reviewed` | Add a fish using a previous compatibility assessment. |
-| `GET` | `/fish/user/:userId` | List all fish in the user's tanks. |
-| `GET` | `/fish/tank/:tankId` | List fish in one tank. |
-| `PATCH` | `/fish/:tankId/:fishDocId` | Update a fish school size; body includes `userId` and `schoolSize`. |
-| `DELETE` | `/fish/:tankId/:fishDocId` | Remove a fish after ownership verification. |
-| `POST` | `/fish/enrich/:fishId` | Generate and save missing LLM care profiles for that fish. |
-| `GET` | `/fish/:tankId/:fishDocId/individual-fish?userId=...` | List individual fish records. |
-| `POST` | `/fish/:tankId/:fishDocId/individual-fish` | Add an individual fish with required name, age, health, story, school status, and image. |
-| `PATCH` | `/fish/:tankId/:fishDocId/individual-fish/:individualFishId` | Update an individual fish record or image. |
-| `DELETE` | `/fish/:tankId/:fishDocId/individual-fish/:individualFishId` | Delete an individual fish record. |
-| `GET` | `/plants/search?query=...` | Search plant catalogue data. |
-| `POST` | `/plants/assess-add` | Use the LLM to assess whether a plant suits a selected tank. |
-| `POST` | `/plants/add` | Add a plant to an owned tank and generate its care profile. |
-| `GET` | `/plants/user/:userId` | List all plants in the user's tanks. |
-| `DELETE` | `/plants/:tankId/:plantDocId` | Remove a plant after ownership verification. |
-
-### AI and chat
-
-| Method | Endpoint | Purpose |
-| --- | --- | --- |
-| `POST` | `/ai/assistant` | Answer a question. Body: `userId`, `message`, `context`, `history`, optional `chatId`, and optional `images`. Returns `answer`, `model`, `chatId`, and uploaded `imageUrls`. |
-| `GET` | `/ai/assistant/chats?userId=...` | List saved chats for a user. |
-| `GET` | `/ai/assistant/chats/:chatId?userId=...` | Load a chat and its messages. |
-| `DELETE` | `/ai/assistant/chats/:chatId?userId=...` | Delete a chat and its messages. |
-| `POST` | `/ai/generate` | Generate a general scoped AI response. Body: `prompt`. |
-| `POST` | `/ai/fish-data` | Generate structured fish care data. Body: `species`. |
-| `POST` | `/ai/plant-data` | Generate structured plant care data. Body: `plant`. |
-| `POST` | `/ai/tank-overview` | Generate or return a cached overview. Body: `userId`, `tankId`. |
-
-Example request:
-
-```bash
-curl -X POST http://localhost:4000/ai/assistant \
-  -H "Content-Type: application/json" \
-  -d '{"userId":"firebase-user-id","message":"Can I add six neon tetras?","context":{"selectedTankIds":["tank-id"]},"history":[]}'
+  USER {
+    string uid PK
+    string email
+    string username
+    string profileImageUrl
+    timestamp createdAt
+  }
+  TANK {
+    string tankId PK
+    string user_id FK
+    string tankName
+    string tankImg
+    string waterType
+    number tankSize
+    string overview
+    object aquaCare
+    timestamp createdAt
+  }
+  FISH {
+    string id PK
+    string name
+    string scientificName
+    string imageUrl
+    string imageSourceUrl
+    string imageLicense
+    string schoolSize
+    string description
+    string bestTempC
+    string phRange
+    string waterSpace
+    string feedType
+    number adultLengthCm
+    string temperament
+    number minimumGroupSize
+    string careProfileConfidence
+  }
+  INDIVIDUAL_FISH {
+    string id PK
+    string parentFishId FK
+    string tankId FK
+    string imageUrl
+    string name
+    string age
+    string health
+    string story
+    string schoolStatus
+    timestamp createdAt
+    timestamp updatedAt
+  }
+  PLANT {
+    string id PK
+    string plantId
+    string tankId FK
+    string name
+    string scientificName
+    string imageSourceUrl
+    string imageLicense
+    string source
+    string description
+    string bestTempC
+    string phRange
+    string light
+    string growthRate
+    string placement
+    timestamp addedAt
+  }
+  WATER_TEST {
+    string id PK
+    string tankId FK
+    timestamp testedAt
+    object readings
+    string imageUrl
+    string waterQuality
+    string summary
+    string nextWaterChange
+    string aiModel
+    timestamp createdAt
+  }
+  CHAT {
+    string id PK
+    string userId FK
+    string title
+    timestamp createdAt
+    timestamp updatedAt
+  }
+  MESSAGE {
+    string id PK
+    string userId FK
+    string question
+    string answer
+    object context
+    array imageUrls
+    timestamp createdAt
+  }
 ```
 
 ## How the API and LLM Work
@@ -285,11 +311,10 @@ Firestore stores users in `users/{userId}` and tanks in `tanks/{tankId}`. A tank
 
 ## Development Notes
 
-- Keep secrets in `backend/.env`; never commit Firebase private keys, Groq keys, or Cloudinary secrets.
 - The client Firebase configuration is public web configuration, but Firestore operations should remain behind the backend API.
 - Add Firebase ID-token verification middleware before treating the current `userId` ownership pattern as production authentication.
 - When adding a route, update both the relevant frontend hook and this API reference.
-- Run `npm run lint` from `Aquastainable/` after frontend changes. Run `npm start` from `backend/` to verify backend startup.
+- Run `npm run lint` from `Aquastainable/` after frontend changes.
 
 ## Documentation
 
